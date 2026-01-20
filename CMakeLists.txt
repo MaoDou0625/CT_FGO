@@ -24,29 +24,7 @@ endif ()
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
-file(GLOB_RECURSE SOURCE
-        src/ob_gins.cc
-        src/core/imu_chain.cc
-        src/common/debug.cc
-        src/common/interpolation.cc
-        src/bridge/imu_adapter.cc
-        src/fileio/fileloader.cc
-        src/fileio/filesaver.cc
-        src/factors/pose_manifold.cc
-        src/preintegration/preintegration_base.cc
-        src/preintegration/preintegration_normal.cc
-        src/preintegration/preintegration_earth.cc
-        src/preintegration/preintegration_odo.cc
-        src/preintegration/preintegration_earth_odo.cc
-        # wheel preintegration (independent classes, currently not wired)
-        src/wheel/preintegration_wheel_base.cc
-        src/wheel/preintegration_wheel_normal.cc
-        src/wheel/preintegration_wheel_odo.cc
-        src/wheel/preintegration_wheel_earth.cc
-        src/wheel/preintegration_wheel_earth_odo.cc)
-
 include_directories(${PROJECT_SOURCE_DIR})
-add_executable(${PROJECT_NAME} ${SOURCE})
 
 # Eigen3
 find_package(Eigen3 REQUIRED)
@@ -58,24 +36,13 @@ include_directories(${Sophus_INCLUDE_DIRS})
 
 # yaml-cpp
 find_package(yaml-cpp REQUIRED)
-target_link_libraries(${PROJECT_NAME} ${YAML_CPP_LIBRARIES} Sophus::Sophus)
-
-# MSVC needs _USE_MATH_DEFINES for M_PI from <cmath>
-if (MSVC)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE _USE_MATH_DEFINES NOMINMAX)
-endif ()
 
 # abseil
 set(ABSL_PROPAGATE_CXX_STD true)
 add_subdirectory(src/thirdparty/abseil-cpp abseil-cpp)
-target_link_libraries(${PROJECT_NAME}
-        absl::strings
-        absl::str_format
-        absl::time)
 
 # Ceres
 find_package(Ceres REQUIRED)
-target_link_libraries(${PROJECT_NAME} ${CERES_LIBRARIES})
 
 # GTest
 find_package(GTest REQUIRED)
