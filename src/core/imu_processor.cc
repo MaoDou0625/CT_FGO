@@ -184,11 +184,11 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
         double dt = imu.dt;
         if (dt < 1e-6) continue;
 
-        auto* factor = factors::ContinuousInertialFactor::Create(
+        auto* inertial_factor = factors::ContinuousInertialFactor::Create(
             imu.time, imu.dvel / dt, imu.dtheta / dt, gravity_vec, omega_ie_local,
             spline_dt, control_points[k].timestamp(), acc_noise_, gyr_noise_
         );
-        problem.AddResidualBlock(factor, nullptr, 
+        problem.AddResidualBlock(inertial_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             bg_[k].data(), bg_[k+1].data(), 
@@ -277,7 +277,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             imu.time, accel_meas, gyro_meas, gravity_vec, omega_ie_local,
             spline_dt, control_points[k].timestamp(), acc_noise_, gyr_noise_
         );
-        problem.AddResidualBlock(inertial_factor, nullptr, 
+        problem.AddResidualBlock(inertial_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             bg_[k].data(), bg_[k+1].data(), 
@@ -290,7 +290,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         auto* nhc_factor = factors::WheelNHCFactor::Create(
             imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_, l_sensor_odopoint_
         );
-        problem.AddResidualBlock(nhc_factor, nullptr, 
+        problem.AddResidualBlock(nhc_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             q_body_imu_.coeffs().data(),
@@ -300,7 +300,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         auto* speed_factor = factors::WheelSpeedFactor::Create(
             imu.time, spline_dt, control_points[k].timestamp(), gyro_meas, speed_weight_, l_sensor_odopoint_
         );
-        problem.AddResidualBlock(speed_factor, nullptr,
+        problem.AddResidualBlock(speed_factor, new ceres::HuberLoss(1.0),
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             bg_[k].data(), bg_[k+1].data(), 
