@@ -6,8 +6,13 @@
 #include <filesystem>
 #include <algorithm>
 
+#include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <ceres/ceres.h>
+
+DECLARE_bool(logtostderr);
+DECLARE_int32(v);
+
 #include <yaml-cpp/yaml.h>
 #include <sophus/se3.hpp>
 

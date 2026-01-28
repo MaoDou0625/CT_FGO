@@ -44,6 +44,10 @@ add_subdirectory(src/thirdparty/abseil-cpp abseil-cpp)
 # Ceres
 find_package(Ceres REQUIRED)
 
+# glog & gflags
+find_package(glog REQUIRED)
+find_package(gflags REQUIRED)
+
 # GTest
 find_package(GTest REQUIRED)
 
@@ -64,6 +68,7 @@ target_link_libraries(ob_gins_ct
     ${YAML_CPP_LIBRARIES} 
     Sophus::Sophus 
     glog::glog
+    gflags::gflags
     absl::strings
     absl::str_format
     absl::time
