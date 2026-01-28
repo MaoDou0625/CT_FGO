@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
         auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, gnss_sqrt_info);
-        problem.AddResidualBlock(factor, new ceres::CauchyLoss(1.0), 
+        problem.AddResidualBlock(factor, nullptr, 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             gnss_lever_arm.data() // GNSS lever arm is zero
