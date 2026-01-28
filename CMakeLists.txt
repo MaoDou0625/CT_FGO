@@ -64,8 +64,8 @@ add_executable(ob_gins_ct
     src/factors/pose_manifold.cc
 )
 target_link_libraries(ob_gins_ct 
-    ${CERES_LIBRARIES} 
-    ${YAML_CPP_LIBRARIES} 
+    Ceres::ceres 
+    yaml-cpp::yaml-cpp 
     Sophus::Sophus 
     glog::glog
     gflags::gflags
