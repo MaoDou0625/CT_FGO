@@ -92,37 +92,21 @@ int main(int argc, char** argv) {
     // Store all ImuProcessors
     std::vector<std::unique_ptr<ImuProcessor>> imu_processors;
     
-    // Default bias random walk noise values
-    double global_acc_bias_rw = 1.0e-4;
-    double global_gyr_bias_rw = 1.0e-5;
-
     // Iterate through config to find all IMU entries
     for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
         std::string key = it->first.as<std::string>();
         if (it->second.IsMap() && it->second["type"]) { 
             std::string type = it->second["type"].as<std::string>();
-            if (type == "standard") {
-                auto processor = std::make_unique<StandardImuProcessor>();
+            
+            // Factory Pattern: Create specific processor based on type string
+            auto processor = ImuProcessor::Create(type);
+            
+            if (processor) {
                 if (processor->LoadConfig(it->second, key)) {
-                    imu_processors.push_back(std::move(processor));
-                    // If this is the main IMU, use its bias random walk for global bias terms
-                    if (key == "imu_main" && it->second["imunoise"]) {
-                        const auto& noise_node = it->second["imunoise"];
-                        if (noise_node["accel_bias_rw"]) global_acc_bias_rw = noise_node["accel_bias_rw"].as<double>();
-                        else if (noise_node["abstd"]) global_acc_bias_rw = noise_node["abstd"].as<double>();
-                        
-                        if (noise_node["gyro_bias_rw"]) global_gyr_bias_rw = noise_node["gyro_bias_rw"].as<double>();
-                        else if (noise_node["gbstd"]) global_gyr_bias_rw = noise_node["gbstd"].as<double>();
-                    }
-                } else {
-                    LOG(ERROR) << "Failed to load config for Standard IMU: " << key;
-                }
-            } else if (type == "wheel") {
-                auto processor = std::make_unique<WheelImuProcessor>();
-                if (processor->LoadConfig(it->second, key)) {
+                    LOG(INFO) << "Loaded IMU: " << key << " (Type: " << type << ")";
                     imu_processors.push_back(std::move(processor));
                 } else {
-                    LOG(ERROR) << "Failed to load config for Wheel IMU: " << key;
+                    LOG(ERROR) << "Failed to load config for IMU: " << key;
                 }
             }
         }

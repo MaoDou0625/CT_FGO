@@ -14,6 +14,18 @@ int findControlPointIndex(double t, double t0, double dt, int max_idx) {
     return static_cast<int>(std::floor((t - dt - t0) / dt));
 }
 
+// ---------------------- Factory Implementation ----------------------
+std::unique_ptr<ImuProcessor> ImuProcessor::Create(const std::string& type) {
+    if (type == "standard") {
+        return std::make_unique<StandardImuProcessor>();
+    } else if (type == "wheel") {
+        return std::make_unique<WheelImuProcessor>();
+    }
+    LOG(ERROR) << "Unknown IMU type: " << type;
+    return nullptr;
+}
+// --------------------------------------------------------------------
+
 void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 

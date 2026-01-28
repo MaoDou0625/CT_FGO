@@ -22,6 +22,9 @@ class ImuProcessor {
 public:
     virtual ~ImuProcessor() = default;
 
+    // Factory method to create specific processor based on type
+    static std::unique_ptr<ImuProcessor> Create(const std::string& type);
+
     virtual bool LoadConfig(const YAML::Node& config_node, const std::string& imu_name) = 0;
     virtual bool LoadData(double t_start, double t_end) = 0;
     virtual void AddFactors(ceres::Problem& problem, 
