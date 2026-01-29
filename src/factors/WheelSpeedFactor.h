@@ -11,8 +11,13 @@ namespace ob_gins {
 namespace factors {
 
 struct WheelSpeedFactor {
-    WheelSpeedFactor(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight, const Eigen::Vector3d& l_sensor_odopoint) 
-        : t_(t), dt_(dt), t0_(t0), gyro_meas_(gyro_meas), weight_(weight), l_sensor_odopoint_(l_sensor_odopoint) {}
+    // Note: l_sensor_odopoint is here only for constructor compatibility, but we optimize it now.
+    // Wait, in this simplified version, we only optimize radius, NOT lever arm?
+    // User requested: Optimize Radius & Lever Arm WITHOUT Install Error.
+    // So we need to accept l_sensor_odopoint_ptr.
+    
+    WheelSpeedFactor(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight) 
+        : t_(t), dt_(dt), t0_(t0), gyro_meas_(gyro_meas), weight_(weight) {}
 
     template <typename T>
     bool operator()(const T* const p0, const T* const p1, const T* const p2, const T* const p3, 
@@ -20,6 +25,7 @@ struct WheelSpeedFactor {
                     const T* const q_body_imu_ptr,
                     const T* const l_body_sensor_ptr,
                     const T* const radius_ptr,
+                    const T* const l_sensor_odopoint_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -36,6 +42,9 @@ struct WheelSpeedFactor {
         Eigen::Map<const QuatT> q_body_imu(q_body_imu_ptr);
         Eigen::Map<const Vec3T> l_body_sensor(l_body_sensor_ptr);
         T radius = *radius_ptr;
+        Eigen::Map<const Vec3T> l_sensor_odopoint(l_sensor_odopoint_ptr);
+
+        (void)bg0; (void)bg3;
 
         T t_val = T(t_);
         T t_start = T(t0_) + T(dt_);
@@ -43,38 +52,44 @@ struct WheelSpeedFactor {
 
         ResT res = spline::BSplineEvaluator::Evaluate<T>(u, T(dt_), T0, T1, T2, T3);
 
-        // 1. 插值陀螺仪零偏
+        // 1. Interpolate Bias
         Vec3T bg = bg1_vec * (T(1.0) - u) + bg2_vec * u;
 
-        // 2. 动态计算轮心位置及在 Body 系下的速度
-        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint_.cast<T>();
+        // 2. NHC Velocity: v_nhc = v_body + w_body x l_total
+        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint;
         Vec3T v_nhc_b = res.v_body + res.w_body.cross(l_nhc);
 
-        // 3. 将修正后的角速度投影到 Body 系 (或理想轮轴系)
-        Vec3T omega_corr_b = q_body_imu * (gyro_meas_.cast<T>() - bg);
+        // 3. Wheel Speed Measurement (Simplified Physics for Rotating IMU)
+        // Since IMU rotates with wheel, Z-axis is the rotation axis.
+        // We assume Z-axis is roughly aligned with axle (no install error correction).
+        // So we just take w_z directly.
+        // w_sensor = w_meas - bias
+        Vec3T w_sensor = gyro_meas_.cast<T>() - bg;
+        
+        // 4. Compute Linear Velocity
+        // v_meas = w_sensor.z * radius
+        T v_meas = w_sensor.z() * radius;
 
-        // 4. 计算测量速度: V = omega_axle * R (假设 Body Z 为轴向)
-        T v_meas = omega_corr_b.z() * radius;
-
-        // 5. 残差: 前向速度之差 (Body X 为前向)
+        // 5. Residual: v_pred - v_meas
         residuals[0] = (v_nhc_b.x() - v_meas) * T(weight_);
 
         return true;
     }
 
-    static ceres::CostFunction* Create(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight, const Eigen::Vector3d& l_sensor_odopoint) {
+    static ceres::CostFunction* Create(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight) {
         return new ceres::AutoDiffCostFunction<WheelSpeedFactor, 1, 
             7, 7, 7, 7, // Poses
             3, 3, 3, 3, // Biases
             4,          // q_body_imu
             3,          // l_body_sensor
-            1           // radius
-        >(new WheelSpeedFactor(t, dt, t0, gyro_meas, weight, l_sensor_odopoint));
+            1,          // radius
+            3           // l_sensor_odopoint (Optimized)
+        >(new WheelSpeedFactor(t, dt, t0, gyro_meas, weight));
     }
 
 private:
     double t_, dt_, t0_, weight_;
-    Eigen::Vector3d gyro_meas_, l_sensor_odopoint_;
+    Eigen::Vector3d gyro_meas_;
 };
 
 } // namespace factors

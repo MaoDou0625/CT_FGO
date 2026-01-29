@@ -39,6 +39,7 @@ public:
 
     bool open(const string &filename, int columns, int filetype = TEXT);
 
+    void writeHeader(const string& header);
     void dump(const vector<double> &data);
     void dumpn(const vector<vector<double>> &data);
 

@@ -50,19 +50,20 @@ def load_imu_gyro(file_path, side, rate_hz=None):
     
     real_freq = 1.0 / np.mean(dt)
 
-    w_norm = np.linalg.norm(data[:, 1:4], axis=1) # Norm of gx, gy, gz
+    # Calculate Norm (raw)
+    w_norm_raw = np.linalg.norm(data[:, 1:4], axis=1)
     w_z_raw = data[:, 3]
     
-    # Convert Delta Theta (rad) to Omega (rad/s) using real dt
+    # Convert to rad/s
     w_z = w_z_raw / dt
-    w_norm = w_norm / dt
+    w_norm = w_norm_raw / dt
     
     if side == 'right':
         w_z = -w_z
         
-    return t, np.abs(w_z), w_norm, real_freq # Use abs for speed calc
+    return t, np.abs(w_z), w_norm, real_freq
 
-def estimate_radius(t_gnss, v_gnss, t_imu, w_imu):
+def estimate_radius(t_gnss, v_gnss, t_imu, w_imu, w_norm_full=None):
     # Interpolate GNSS speed to IMU time
     v_interp = np.interp(t_imu, t_gnss, v_gnss)
     
@@ -75,13 +76,21 @@ def estimate_radius(t_gnss, v_gnss, t_imu, w_imu):
     w_valid = w_imu[valid]
     
     if len(v_valid) < 100:
-        return None
+        return None, 0.0
     
     # Linear regression: v = R * w  =>  R = v / w
     # Least squares: R = sum(v*w) / sum(w*w)
-    
     R = np.sum(v_valid * w_valid) / np.sum(w_valid**2)
-    return R
+    
+    # Calculate Ratio on valid set if w_norm provided
+    avg_ratio = 0.0
+    if w_norm_full is not None:
+        w_norm_valid = w_norm_full[valid]
+        # ratio = w_z / w_norm
+        ratio_valid = w_valid / (w_norm_valid + 1e-9)
+        avg_ratio = np.mean(ratio_valid)
+        
+    return R, avg_ratio
 
 def main():
     config_path = "CT_FGO/config/ob_gins_ct_wsl.yaml"
@@ -106,12 +115,12 @@ def main():
             try:
                 t_imu, w_z, w_norm, freq = load_imu_gyro(imu_file, side, rate)
                 
-                # Estimate with w_z
-                R_z = estimate_radius(t_gnss, v_gnss, t_imu, w_z)
+                # Estimate with w_z (and calc ratio)
+                R_z, ratio = estimate_radius(t_gnss, v_gnss, t_imu, w_z, w_norm)
                 # Estimate with w_norm
-                R_norm = estimate_radius(t_gnss, v_gnss, t_imu, w_norm)
+                R_norm, _ = estimate_radius(t_gnss, v_gnss, t_imu, w_norm)
                 
-                print(f"{key:<12} | {side:<6} | {freq:<6.1f} | {R_z:.4f} (Z) | {R_norm:.4f} (Norm)")
+                print(f"{key:<12} | {side:<6} | {freq:<6.1f} | {R_z:.4f} (Z) | {R_norm:.4f} (N) | {ratio:.4f} (ValidRatio)")
             except Exception as e:
                 print(f"{key:<15} | Error: {e}")
 

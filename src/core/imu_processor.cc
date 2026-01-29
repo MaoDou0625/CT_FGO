@@ -30,9 +30,11 @@ std::unique_ptr<ImuProcessor> ImuProcessor::Create(const std::string& type) {
 void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
-    std::string file_name = output_path + "/errors_" + name_ + ".txt";
-    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4)
-    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4);
+    std::string file_name = output_path + "/errors_" + name_ + ".csv";
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1)
+    // 1 + 3 + 3 + 3 + 4 + 3 + 1 = 18
+    FileSaver saver(file_name, 18);
+    saver.writeHeader("time,bg_x,bg_y,bg_z,ba_x,ba_y,ba_z,lever_x,lever_y,lever_z,qx,qy,qz,qw,opt_lever_x,opt_lever_y,opt_lever_z,opt_radius");
 
     for (size_t i = 0; i < control_points.size(); ++i) {
         double t = control_points[i].timestamp();
@@ -56,6 +58,10 @@ void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<
         data.push_back(q_body_imu_.y());
         data.push_back(q_body_imu_.z());
         data.push_back(q_body_imu_.w());
+
+        // StandardImu default values for derived fields
+        data.push_back(0.0); data.push_back(0.0); data.push_back(0.0); // opt_lever
+        data.push_back(0.0); // opt_radius
 
         saver.dump(data);
     }
@@ -236,7 +242,7 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
     if (config_node["wheel_radius"]) wheel_radius_initial_ = config_node["wheel_radius"].as<double>();
     wheel_radius_ = wheel_radius_initial_;
     
-    // Load Priors (Std Dev) from config, default to 5mm / 2cm if not set
+    // Load Priors (Std Dev) from config, default to 5mm / 2cm / 1deg if not set
     if (config_node["priors"]) {
         const auto& p = config_node["priors"];
         if (p["radius_std"]) prior_radius_std_ = p["radius_std"].as<double>();
@@ -250,7 +256,12 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
 bool WheelImuProcessor::LoadData(double t_start, double t_end) {
     if (!LoadImuFileAndFilter(t_start, t_end)) return false;
     for (auto& imu : valid_imu_data_) {
-        if (side_ == "right") imu.dtheta.z() *= -1.0;
+        // Correct rotation direction based on data analysis:
+        // Left wheels (imu1/2) raw w_z is negative -> Need inversion to be positive
+        // Right wheels (imu3/4) raw w_z is positive -> Keep as is (already positive)
+        
+        if (side_ == "left") imu.dtheta.z() *= -1.0;
+        // if (side_ == "right") do nothing
     }
     return true;
 }
@@ -276,6 +287,10 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     // Optimize Wheel Lever Arm (with Prior)
     problem.AddParameterBlock(l_sensor_odopoint_.data(), 3);
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_sensor_odopoint_initial_, prior_lever_std_), nullptr, l_sensor_odopoint_.data());
+
+    // Optimize Install Error (Small Angle) - REMOVED for simplification regression
+    // problem.AddParameterBlock(ext_rpy_.data(), 3);
+    // problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(Eigen::Vector3d::Zero(), prior_ext_rpy_std_), nullptr, ext_rpy_.data()); // Reuse Vector3 Prior for RPY
 
     problem.AddResidualBlock(factors::RotationPriorFactor::Create(q_body_imu_initial_, 0.01), nullptr, q_body_imu_.coeffs().data());
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_body_sensor_, 0.05), nullptr, l_body_sensor_.data());
@@ -312,7 +327,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
 
         // Pass l_sensor_odopoint_ as optimization variable (pointer)
         auto* nhc_factor = factors::WheelNHCFactor::Create(
-            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_
+            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_, l_sensor_odopoint_
         );
         problem.AddResidualBlock(nhc_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
@@ -354,9 +369,10 @@ void WheelImuProcessor::AddBiasFactors(ceres::Problem& problem,
 void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
-    std::string file_name = output_path + "/errors_" + name_ + ".txt";
-    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1)
-    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1);
+    std::string file_name = output_path + "/errors_" + name_ + ".csv";
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1), ext_rpy(3)
+    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1 + 3);
+    saver.writeHeader("time,bg_x,bg_y,bg_z,ba_x,ba_y,ba_z,lever_x,lever_y,lever_z,qx,qy,qz,qw,opt_lever_x,opt_lever_y,opt_lever_z,opt_radius,opt_rpy_x,opt_rpy_y,opt_rpy_z");
 
     for (size_t i = 0; i < control_points.size(); ++i) {
         double t = control_points[i].timestamp();
@@ -386,6 +402,11 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
         data.push_back(l_sensor_odopoint_.y());
         data.push_back(l_sensor_odopoint_.z());
         data.push_back(wheel_radius_);
+        
+        // Append Install Error (Zero for this simplified version)
+        data.push_back(ext_rpy_.x());
+        data.push_back(ext_rpy_.y());
+        data.push_back(ext_rpy_.z());
 
         saver.dump(data);
     }

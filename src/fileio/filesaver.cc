@@ -38,6 +38,12 @@ bool FileSaver::open(const string &filename, int columns, int filetype) {
     return isOpen();
 }
 
+void FileSaver::writeHeader(const string& header) {
+    if (isOpen() && filetype_ == TEXT) {
+        filefp_ << header << "\n";
+    }
+}
+
 void FileSaver::dump(const vector<double> &data) {
     dump_(data);
 }
