@@ -50,15 +50,17 @@ def load_imu_gyro(file_path, side, rate_hz=None):
     
     real_freq = 1.0 / np.mean(dt)
 
-    w_z = data[:, 3] # col 3 is gz (Delta Theta)
+    w_norm = np.linalg.norm(data[:, 1:4], axis=1) # Norm of gx, gy, gz
+    w_z_raw = data[:, 3]
     
     # Convert Delta Theta (rad) to Omega (rad/s) using real dt
-    w_z = w_z / dt
+    w_z = w_z_raw / dt
+    w_norm = w_norm / dt
     
     if side == 'right':
         w_z = -w_z
         
-    return t, np.abs(w_z), real_freq # Use abs for speed calc
+    return t, np.abs(w_z), w_norm, real_freq # Use abs for speed calc
 
 def estimate_radius(t_gnss, v_gnss, t_imu, w_imu):
     # Interpolate GNSS speed to IMU time
@@ -102,13 +104,14 @@ def main():
             rate = val.get('rate_hz', 100)
             
             try:
-                t_imu, w_imu, freq = load_imu_gyro(imu_file, side, rate)
-                R = estimate_radius(t_gnss, v_gnss, t_imu, w_imu)
+                t_imu, w_z, w_norm, freq = load_imu_gyro(imu_file, side, rate)
                 
-                if R:
-                    print(f"{key:<15} | {side:<6} | {freq:<10.1f} | {R:.4f}            | {len(t_imu)}")
-                else:
-                    print(f"{key:<15} | {side:<6} | {freq:<10.1f} | Insufficient Data |")
+                # Estimate with w_z
+                R_z = estimate_radius(t_gnss, v_gnss, t_imu, w_z)
+                # Estimate with w_norm
+                R_norm = estimate_radius(t_gnss, v_gnss, t_imu, w_norm)
+                
+                print(f"{key:<12} | {side:<6} | {freq:<6.1f} | {R_z:.4f} (Z) | {R_norm:.4f} (Norm)")
             except Exception as e:
                 print(f"{key:<15} | Error: {e}")
 
