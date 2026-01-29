@@ -42,7 +42,7 @@ public:
 
     double* GetLeverArmData() { return l_body_sensor_.data(); }
 
-    void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global);
+    virtual void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global);
 
 protected:
     std::string name_;
@@ -105,10 +105,21 @@ public:
                         std::vector<spline::ControlPoint>& control_points, 
                         double spline_dt) override;
 
+    void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) override;
+
 private:
     std::string side_;
+    // Now optimization variables
     Eigen::Vector3d l_sensor_odopoint_;
     
+    // Initial values for Priors
+    Eigen::Vector3d l_sensor_odopoint_initial_;
+    double wheel_radius_initial_ = 0.3;
+    
+    // Prior constraints (Standard Deviations)
+    double prior_radius_std_ = 0.005; // Default 5mm
+    double prior_lever_std_ = 0.02;   // Default 2cm
+
     double wheel_radius_ = 0.3;
     double speed_weight_ = 1.0;
     double nhc_weight_ = 1.0;

@@ -7,6 +7,7 @@
 #include "src/factors/WheelSpeedFactor.h"
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
+#include "src/factors/ScalarPriorFactor.h"
 
 namespace ob_gins {
 
@@ -184,8 +185,11 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
         double dt = imu.dt;
         if (dt < 1e-6) continue;
 
+        Eigen::Vector3d gyro_meas = imu.dtheta / dt;
+        Eigen::Vector3d accel_meas = imu.dvel / dt;
+
         auto* inertial_factor = factors::ContinuousInertialFactor::Create(
-            imu.time, imu.dvel / dt, imu.dtheta / dt, gravity_vec, omega_ie_local,
+            imu.time, accel_meas, gyro_meas, gravity_vec, omega_ie_local,
             spline_dt, control_points[k].timestamp(), acc_noise_, gyr_noise_
         );
         problem.AddResidualBlock(inertial_factor, new ceres::HuberLoss(1.0), 
@@ -218,13 +222,27 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
     columns_ = config_node["columns"].as<int>();
     rate_hz_ = config_node["rate_hz"].as<double>();
     l_body_sensor_ = LoadLeverArm(config_node, "antlever");
-    l_sensor_odopoint_ = LoadLeverArm(config_node, "odolever");
+    
+    // Store initial values for Priors
+    l_sensor_odopoint_initial_ = LoadLeverArm(config_node, "odolever");
+    l_sensor_odopoint_ = l_sensor_odopoint_initial_;
+    
     side_ = config_node["side"].as<std::string>();
 
     LoadExtrinsics(config_node);
     if (config_node["nhc_weight"]) nhc_weight_ = config_node["nhc_weight"].as<double>();
     if (config_node["speed_weight"]) speed_weight_ = config_node["speed_weight"].as<double>();
-    if (config_node["wheel_radius"]) wheel_radius_ = config_node["wheel_radius"].as<double>();
+    
+    if (config_node["wheel_radius"]) wheel_radius_initial_ = config_node["wheel_radius"].as<double>();
+    wheel_radius_ = wheel_radius_initial_;
+    
+    // Load Priors (Std Dev) from config, default to 5mm / 2cm if not set
+    if (config_node["priors"]) {
+        const auto& p = config_node["priors"];
+        if (p["radius_std"]) prior_radius_std_ = p["radius_std"].as<double>();
+        if (p["lever_std"]) prior_lever_std_ = p["lever_std"].as<double>();
+    }
+
     LoadImuNoise(config_node);
     return true;
 }
@@ -251,8 +269,13 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     problem.SetManifold(q_body_imu_.coeffs().data(), new ceres::EigenQuaternionManifold());
     problem.AddParameterBlock(l_body_sensor_.data(), 3);
 
+    // Optimize Wheel Radius (with Prior)
     problem.AddParameterBlock(&wheel_radius_, 1);
-    problem.SetParameterBlockConstant(&wheel_radius_);
+    problem.AddResidualBlock(factors::ScalarPriorFactor::Create(wheel_radius_initial_, prior_radius_std_), nullptr, &wheel_radius_);
+
+    // Optimize Wheel Lever Arm (with Prior)
+    problem.AddParameterBlock(l_sensor_odopoint_.data(), 3);
+    problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_sensor_odopoint_initial_, prior_lever_std_), nullptr, l_sensor_odopoint_.data());
 
     problem.AddResidualBlock(factors::RotationPriorFactor::Create(q_body_imu_initial_, 0.01), nullptr, q_body_imu_.coeffs().data());
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_body_sensor_, 0.05), nullptr, l_body_sensor_.data());
@@ -287,18 +310,21 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             l_body_sensor_.data()
         );
 
+        // Pass l_sensor_odopoint_ as optimization variable (pointer)
         auto* nhc_factor = factors::WheelNHCFactor::Create(
-            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_, l_sensor_odopoint_
+            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_
         );
         problem.AddResidualBlock(nhc_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             q_body_imu_.coeffs().data(),
-            l_body_sensor_.data()
+            l_body_sensor_.data(),
+            l_sensor_odopoint_.data()
         );
 
+
         auto* speed_factor = factors::WheelSpeedFactor::Create(
-            imu.time, spline_dt, control_points[k].timestamp(), gyro_meas, speed_weight_, l_sensor_odopoint_
+            imu.time, spline_dt, control_points[k].timestamp(), gyro_meas, speed_weight_
         );
         problem.AddResidualBlock(speed_factor, new ceres::HuberLoss(1.0),
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
@@ -307,7 +333,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             bg_[k+2].data(), bg_[k+3].data(),
             q_body_imu_.coeffs().data(),
             l_body_sensor_.data(),
-            &wheel_radius_
+            &wheel_radius_,
+            l_sensor_odopoint_.data()
         );
     }
 }
@@ -322,6 +349,48 @@ void WheelImuProcessor::AddBiasFactors(ceres::Problem& problem,
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, acc_bias_rw_, acc_corr_time_),
             nullptr, ba_[i].data(), ba_[i+1].data());
     }
+}
+
+void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {
+    if (bg_.empty() || bg_.size() != control_points.size()) return;
+
+    std::string file_name = output_path + "/errors_" + name_ + ".txt";
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1)
+    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1);
+
+    for (size_t i = 0; i < control_points.size(); ++i) {
+        double t = control_points[i].timestamp();
+        
+        std::vector<double> data;
+        data.push_back(t);
+        
+        data.push_back(bg_[i].x());
+        data.push_back(bg_[i].y());
+        data.push_back(bg_[i].z());
+
+        data.push_back(ba_[i].x());
+        data.push_back(ba_[i].y());
+        data.push_back(ba_[i].z());
+
+        data.push_back(l_body_sensor_.x());
+        data.push_back(l_body_sensor_.y());
+        data.push_back(l_body_sensor_.z());
+
+        data.push_back(q_body_imu_.x());
+        data.push_back(q_body_imu_.y());
+        data.push_back(q_body_imu_.z());
+        data.push_back(q_body_imu_.w());
+
+        // Append optimized wheel params
+        data.push_back(l_sensor_odopoint_.x());
+        data.push_back(l_sensor_odopoint_.y());
+        data.push_back(l_sensor_odopoint_.z());
+        data.push_back(wheel_radius_);
+
+        saver.dump(data);
+    }
+    saver.close();
+    LOG(INFO) << "Saved errors for " << name_ << " to " << file_name;
 }
 
 } // namespace ob_gins
