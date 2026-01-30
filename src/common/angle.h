@@ -23,6 +23,10 @@
 #ifndef ANGLE_H
 #define ANGLE_H
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+#include <Eigen/Core>
+
 const double D2R = (M_PI / 180.0);
 const double R2D = (180.0 / M_PI);
 

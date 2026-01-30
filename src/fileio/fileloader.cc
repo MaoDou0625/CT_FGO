@@ -35,7 +35,12 @@ bool FileLoader::open(const string &filename, int columns, int filetype) {
 
     columns_  = columns;
     filetype_ = filetype;
-    return isOpen();
+    
+    if (!isOpen()) {
+        std::cerr << "[FileLoader] Failed to open file: " << filename << std::endl;
+        return false;
+    }
+    return true;
 }
 
 vector<double> FileLoader::load() {
@@ -83,7 +88,7 @@ bool FileLoader::loadn(vector<vector<double>> &datas, int epochs) {
 }
 
 bool FileLoader::load_() {
-    if (isEof())
+    if (isEof() || !filefp_.is_open())
         return false;
 
     data_.resize(columns_);

@@ -68,7 +68,7 @@ target_link_libraries(ob_gins_ct
     yaml-cpp::yaml-cpp 
     Sophus::Sophus 
     glog::glog
-    gflags::gflags
+    gflags
     absl::strings
     absl::str_format
     absl::time
