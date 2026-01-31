@@ -192,7 +192,9 @@ def main():
         axs[1].set_xlabel('Time (s)')
         plt.tight_layout()
 
-    plt.show()
+    # plt.show()
+    plt.savefig('ct_position.png')
+    print("Saved ct_position.png")
 
 if __name__ == "__main__":
     main()
