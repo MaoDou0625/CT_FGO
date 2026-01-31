@@ -11,13 +11,13 @@ namespace ob_gins {
 namespace factors {
 
 struct WheelNHCFactor {
-    WheelNHCFactor(double t, double dt, double t0, double weight, const Eigen::Vector3d& l_sensor_odopoint) 
-        : t_(t), dt_(dt), t0_(t0), weight_(weight), l_sensor_odopoint_(l_sensor_odopoint) {}
+    // Constructor moved to private
 
     template <typename T>
     bool operator()(const T* const p0, const T* const p1, const T* const p2, const T* const p3, 
                     const T* const q_body_imu_ptr,
                     const T* const l_body_sensor_ptr,
+                    const T* const l_sensor_odopoint_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -32,6 +32,7 @@ struct WheelNHCFactor {
         
         Eigen::Map<const QuatT> q_body_imu(q_body_imu_ptr);
         Eigen::Map<const Vec3T> l_body_sensor(l_body_sensor_ptr);
+        Eigen::Map<const Vec3T> l_sensor_odopoint(l_sensor_odopoint_ptr);
 
         T t_val = T(t_);
         T t_start = T(t0_) + T(dt_);
@@ -43,7 +44,7 @@ struct WheelNHCFactor {
         );
 
         // 动态计算轮心在 Body 系下的位置
-        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint_.cast<T>();
+        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint;
 
         // 计算轮心在 Body 系下的速度 (利用杆臂补偿公式: v_p = v_b + w_b x l_p)
         Vec3T v_nhc_b = res.v_body + res.w_body.cross(l_nhc);
@@ -57,9 +58,10 @@ struct WheelNHCFactor {
         return true;
     }
 
-    static ceres::CostFunction* Create(double t, double dt, double t0, double weight, const Eigen::Vector3d& l_sensor_odopoint) {
-        return new ceres::AutoDiffCostFunction<WheelNHCFactor, 2, 7, 7, 7, 7, 4, 3>(
-            new WheelNHCFactor(t, dt, t0, weight, l_sensor_odopoint));
+    static ceres::CostFunction* Create(double t, double dt, double t0, double weight, const Eigen::Vector3d& /*l_sensor_odopoint*/) {
+        // Note: l_sensor_odopoint is now passed as a parameter block, initial value ignored here
+        return new ceres::AutoDiffCostFunction<WheelNHCFactor, 2, 7, 7, 7, 7, 4, 3, 3>(
+            new WheelNHCFactor(t, dt, t0, weight));
     }
 
 private:
@@ -67,7 +69,11 @@ private:
     double dt_;
     double t0_;
     double weight_;
-    Eigen::Vector3d l_sensor_odopoint_;
+    // Eigen::Vector3d l_sensor_odopoint_; // Removed, now a parameter
+    
+    // Constructor updated to remove l_sensor_odopoint
+    WheelNHCFactor(double t, double dt, double t0, double weight) 
+        : t_(t), dt_(dt), t0_(t0), weight_(weight) {}
 };
 
 } // namespace factors

@@ -11,8 +11,7 @@ namespace ob_gins {
 namespace factors {
 
 struct WheelSpeedFactor {
-    WheelSpeedFactor(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight, const Eigen::Vector3d& l_sensor_odopoint) 
-        : t_(t), dt_(dt), t0_(t0), gyro_meas_(gyro_meas), weight_(weight), l_sensor_odopoint_(l_sensor_odopoint) {}
+    // Constructor moved to private
 
     template <typename T>
     bool operator()(const T* const p0, const T* const p1, const T* const p2, const T* const p3, 
@@ -20,6 +19,7 @@ struct WheelSpeedFactor {
                     const T* const q_body_imu_ptr,
                     const T* const l_body_sensor_ptr,
                     const T* const radius_ptr,
+                    const T* const l_sensor_odopoint_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -36,6 +36,7 @@ struct WheelSpeedFactor {
         Eigen::Map<const QuatT> q_body_imu(q_body_imu_ptr);
         Eigen::Map<const Vec3T> l_body_sensor(l_body_sensor_ptr);
         T radius = *radius_ptr;
+        Eigen::Map<const Vec3T> l_sensor_odopoint(l_sensor_odopoint_ptr);
 
         T t_val = T(t_);
         T t_start = T(t0_) + T(dt_);
@@ -47,7 +48,7 @@ struct WheelSpeedFactor {
         Vec3T bg = bg1_vec * (T(1.0) - u) + bg2_vec * u;
 
         // 2. 动态计算轮心位置及在 Body 系下的速度
-        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint_.cast<T>();
+        Vec3T l_nhc = l_body_sensor + q_body_imu * l_sensor_odopoint;
         Vec3T v_nhc_b = res.v_body + res.w_body.cross(l_nhc);
 
         // 3. 将修正后的角速度投影到 Body 系 (或理想轮轴系)
@@ -62,19 +63,23 @@ struct WheelSpeedFactor {
         return true;
     }
 
-    static ceres::CostFunction* Create(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight, const Eigen::Vector3d& l_sensor_odopoint) {
+    static ceres::CostFunction* Create(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight, const Eigen::Vector3d& /*l_sensor_odopoint*/) {
         return new ceres::AutoDiffCostFunction<WheelSpeedFactor, 1, 
             7, 7, 7, 7, // Poses
             3, 3, 3, 3, // Biases
             4,          // q_body_imu
             3,          // l_body_sensor
-            1           // radius
-        >(new WheelSpeedFactor(t, dt, t0, gyro_meas, weight, l_sensor_odopoint));
+            1,          // radius
+            3           // l_sensor_odopoint
+        >(new WheelSpeedFactor(t, dt, t0, gyro_meas, weight));
     }
 
 private:
     double t_, dt_, t0_, weight_;
-    Eigen::Vector3d gyro_meas_, l_sensor_odopoint_;
+    Eigen::Vector3d gyro_meas_;
+    // Constructor updated
+    WheelSpeedFactor(double t, double dt, double t0, const Eigen::Vector3d& gyro_meas, double weight) 
+        : t_(t), dt_(dt), t0_(t0), gyro_meas_(gyro_meas), weight_(weight) {}
 };
 
 } // namespace factors

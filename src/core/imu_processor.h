@@ -11,6 +11,7 @@
 
 #include "src/common/types.h"
 #include "src/spline/BSplineEvaluator.h"
+#include "src/core/wheel_mechanization.h"
 
 namespace ob_gins {
 
@@ -108,6 +109,10 @@ public:
     void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) override;
 
 private:
+    // Mechanization
+    WheelMechanization mechanization_;
+    std::vector<Eigen::Quaterniond> integrated_attitudes_;
+
     std::string side_;
     // Now optimization variables
     Eigen::Vector3d l_sensor_odopoint_;

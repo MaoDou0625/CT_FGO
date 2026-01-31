@@ -8,6 +8,7 @@
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
 #include "src/factors/ScalarPriorFactor.h"
+#include "src/factors/WheelAttitudeFactor.h"
 
 namespace ob_gins {
 
@@ -295,7 +296,10 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         Eigen::Vector3d gyro_meas = imu.dtheta / dt;
         Eigen::Vector3d accel_meas = imu.dvel / dt;
 
-        // Add Continuous Inertial Factor (Enables Accel/Gyro Bias Estimation)
+        // [DISABLED] ContinuousInertialFactor assumes the IMU is fixed to the body.
+        // For wheel-mounted IMUs, the sensor frame rotates (pitches) rapidly relative to the body.
+        // Forcing this constraint would make the solver believe the whole car is spinning like a wheel.
+        /*
         auto* inertial_factor = factors::ContinuousInertialFactor::Create(
             imu.time, accel_meas, gyro_meas, gravity_vec, omega_ie_local,
             spline_dt, control_points[k].timestamp(), acc_noise_, gyr_noise_
@@ -309,10 +313,11 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             ba_[k+2].data(), ba_[k+3].data(),
             l_body_sensor_.data()
         );
+        */
 
         // Pass l_sensor_odopoint_ as optimization variable (pointer)
         auto* nhc_factor = factors::WheelNHCFactor::Create(
-            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_
+            imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_, l_sensor_odopoint_
         );
         problem.AddResidualBlock(nhc_factor, new ceres::HuberLoss(1.0), 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
@@ -324,7 +329,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
 
 
         auto* speed_factor = factors::WheelSpeedFactor::Create(
-            imu.time, spline_dt, control_points[k].timestamp(), gyro_meas, speed_weight_
+            imu.time, spline_dt, control_points[k].timestamp(), gyro_meas, speed_weight_, l_sensor_odopoint_
         );
         problem.AddResidualBlock(speed_factor, new ceres::HuberLoss(1.0),
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
