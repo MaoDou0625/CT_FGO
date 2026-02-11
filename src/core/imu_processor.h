@@ -128,6 +128,8 @@ private:
     double wheel_radius_ = 0.3;
     double speed_weight_ = 1.0;
     double nhc_weight_ = 1.0;
+    double att_weight_roll_ = 0.0;
+    double att_weight_pitch_ = 0.0;
 };
 
 } // namespace ob_gins

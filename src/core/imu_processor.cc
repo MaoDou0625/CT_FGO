@@ -5,10 +5,11 @@
 #include "src/factors/ContinuousInertialFactor.h"
 #include "src/factors/WheelNHCFactor.h"
 #include "src/factors/WheelSpeedFactor.h"
+#include "src/factors/WheelGyroFactor.h" // NEW
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
 #include "src/factors/ScalarPriorFactor.h"
-#include "src/factors/WheelAttitudeFactor.h"
+// #include "src/factors/WheelAttitudeFactor.h" // Deprecated
 
 namespace ob_gins {
 
@@ -233,6 +234,8 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
     LoadExtrinsics(config_node);
     if (config_node["nhc_weight"]) nhc_weight_ = config_node["nhc_weight"].as<double>();
     if (config_node["speed_weight"]) speed_weight_ = config_node["speed_weight"].as<double>();
+    if (config_node["attitude_weight_roll"]) att_weight_roll_ = config_node["attitude_weight_roll"].as<double>();
+    if (config_node["attitude_weight_yaw"]) att_weight_pitch_ = config_node["attitude_weight_yaw"].as<double>();
     
     if (config_node["wheel_radius"]) wheel_radius_initial_ = config_node["wheel_radius"].as<double>();
     wheel_radius_ = wheel_radius_initial_;
@@ -253,6 +256,20 @@ bool WheelImuProcessor::LoadData(double t_start, double t_end) {
     for (auto& imu : valid_imu_data_) {
         if (side_ == "right") imu.dtheta.z() *= -1.0;
     }
+
+    integrated_attitudes_.clear();
+    Eigen::Vector3d acc_mean = Eigen::Vector3d::Zero();
+    int N = std::min((int)valid_imu_data_.size(), 100);
+    for(int i=0; i<N; ++i) acc_mean += valid_imu_data_[i].dvel / valid_imu_data_[i].dt;
+    if(N > 0) acc_mean /= N;
+    
+    mechanization_.Initialize(acc_mean);
+    
+    for (const auto& imu : valid_imu_data_) {
+        mechanization_.Propagate(imu, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+        integrated_attitudes_.push_back(mechanization_.GetAttitude());
+    }
+
     return true;
 }
 
@@ -286,7 +303,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         problem.AddParameterBlock(ba_[i].data(), 3);
     }
 
-    for (const auto& imu : valid_imu_data_) {
+    for (size_t idx = 0; idx < valid_imu_data_.size(); ++idx) {
+        const auto& imu = valid_imu_data_[idx];
         int k = findControlPointIndex(imu.time, t0_spline, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
@@ -296,24 +314,21 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         Eigen::Vector3d gyro_meas = imu.dtheta / dt;
         Eigen::Vector3d accel_meas = imu.dvel / dt;
 
-        // [DISABLED] ContinuousInertialFactor assumes the IMU is fixed to the body.
-        // For wheel-mounted IMUs, the sensor frame rotates (pitches) rapidly relative to the body.
-        // Forcing this constraint would make the solver believe the whole car is spinning like a wheel.
-        /*
-        auto* inertial_factor = factors::ContinuousInertialFactor::Create(
-            imu.time, accel_meas, gyro_meas, gravity_vec, omega_ie_local,
-            spline_dt, control_points[k].timestamp(), acc_noise_, gyr_noise_
-        );
-        problem.AddResidualBlock(inertial_factor, new ceres::HuberLoss(1.0), 
-            control_points[k].pose_data(), control_points[k+1].pose_data(), 
-            control_points[k+2].pose_data(), control_points[k+3].pose_data(),
-            bg_[k].data(), bg_[k+1].data(), 
-            bg_[k+2].data(), bg_[k+3].data(),
-            ba_[k].data(), ba_[k+1].data(), 
-            ba_[k+2].data(), ba_[k+3].data(),
-            l_body_sensor_.data()
-        );
-        */
+        // Add Wheel Gyro Factor (Replaces WheelAttitudeFactor)
+        // Now dynamically corrects bias!
+        if (att_weight_roll_ > 0 || att_weight_pitch_ > 0) {
+            auto* gyro_factor = factors::WheelGyroFactor::Create(
+                imu.time, spline_dt, control_points[k].timestamp(),
+                gyro_meas, att_weight_roll_, att_weight_pitch_
+            );
+            problem.AddResidualBlock(gyro_factor, new ceres::HuberLoss(1.0),
+                control_points[k].pose_data(), control_points[k+1].pose_data(), 
+                control_points[k+2].pose_data(), control_points[k+3].pose_data(),
+                bg_[k].data(), bg_[k+1].data(), 
+                bg_[k+2].data(), bg_[k+3].data(),
+                q_body_imu_.coeffs().data()
+            );
+        }
 
         // Pass l_sensor_odopoint_ as optimization variable (pointer)
         auto* nhc_factor = factors::WheelNHCFactor::Create(
@@ -362,6 +377,10 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
     std::string file_name = output_path + "/errors_" + name_ + ".txt";
     // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1)
     FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1);
+    
+    // Also save integrated attitude for debugging
+    std::string att_file_name = output_path + "/attitude_" + name_ + ".txt";
+    FileSaver att_saver(att_file_name, 1 + 4); // t, q(4)
 
     for (size_t i = 0; i < control_points.size(); ++i) {
         double t = control_points[i].timestamp();
@@ -394,8 +413,23 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
 
         saver.dump(data);
     }
+    
+    // Save Integrated Attitudes (sampled at IMU rate, not control point rate)
+    for (size_t i = 0; i < valid_imu_data_.size(); ++i) {
+        if (i >= integrated_attitudes_.size()) break;
+        std::vector<double> att_data;
+        att_data.push_back(valid_imu_data_[i].time);
+        att_data.push_back(integrated_attitudes_[i].x());
+        att_data.push_back(integrated_attitudes_[i].y());
+        att_data.push_back(integrated_attitudes_[i].z());
+        att_data.push_back(integrated_attitudes_[i].w());
+        att_saver.dump(att_data);
+    }
+    
     saver.close();
+    att_saver.close();
     LOG(INFO) << "Saved errors for " << name_ << " to " << file_name;
+    LOG(INFO) << "Saved attitudes for " << name_ << " to " << att_file_name;
 }
 
 } // namespace ob_gins

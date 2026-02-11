@@ -33,6 +33,8 @@ center_imu1:
   wheel_radius: 0.3
   speed_weight: 10.0
   nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 1.0  # Front Left (Steering)
   imunoise:
     accel_noise: 120      # ug/sqrt(Hz)
     gyro_noise:  0.007     # deg/s/sqrt(Hz)
@@ -53,6 +55,8 @@ center_imu2:
   wheel_radius: 0.3
   speed_weight: 10.0
   nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 100.0 # Rear Left (Fixed)
   imunoise:
     accel_noise: 120      # ug/sqrt(Hz)
     gyro_noise:  0.007     # deg/s/sqrt(Hz)
@@ -74,6 +78,8 @@ center_imu3:
   wheel_radius: 0.3
   speed_weight: 10.0
   nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 1.0  # Front Right (Steering)
   imunoise:
     accel_noise: 120      # ug/sqrt(Hz)
     gyro_noise:  0.007     # deg/s/sqrt(Hz)
@@ -95,6 +101,8 @@ center_imu4:
   wheel_radius: 0.3
   speed_weight: 10.0
   nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 100.0 # Rear Right (Fixed)
   imunoise:
     accel_noise: 120      # ug/sqrt(Hz)
     gyro_noise:  0.007     # deg/s/sqrt(Hz)
