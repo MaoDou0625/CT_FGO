@@ -58,10 +58,13 @@ def main():
         print(f"Error: Result file {args.result} not found.")
         return
 
+    output_dir = os.path.dirname(args.result)
+
     # 1. Load Navigation Results
     # Format: time, lat, lon, alt, vx, vy, vz, roll, pitch, yaw
     print(f"Loading result: {args.result}")
     res_data = np.loadtxt(args.result)
+    if res_data.ndim == 1: res_data = res_data.reshape(1, -1)
     res_time = res_data[:, 0]
     res_blh = res_data[:, 1:4]
     res_vel = res_data[:, 4:7]
@@ -71,6 +74,7 @@ def main():
     # Format: time, lat, lon, alt, ...
     print(f"Loading truth: {args.truth}")
     truth_data = np.loadtxt(args.truth)
+    if truth_data.ndim == 1: truth_data = truth_data.reshape(1, -1)
     truth_time = truth_data[:, 0]
     truth_blh = truth_data[:, 1:4]
 
@@ -89,7 +93,7 @@ def main():
     truth_enu_plot = truth_enu[mask]
     truth_blh_plot = truth_blh[mask]
 
-    # --- Plot 1: Position (ENU) ---
+    # --- Plot 1: Position Comparison (ENU) ---
     fig1, axs1 = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
     labels = ['East (m)', 'North (m)', 'Up (m)']
     for i in range(3):
@@ -101,9 +105,14 @@ def main():
     axs1[2].set_xlabel('Time (s)')
     fig1.suptitle('Position Comparison (Local ENU)')
     plt.tight_layout()
+    
+    path1 = os.path.join(output_dir, 'ct_position_comparison.png')
+    fig1.savefig(path1)
+    print(f"Saved {path1}")
+    plt.close(fig1)
 
     # --- Plot 2: 2D Trajectory ---
-    plt.figure(figsize=(8, 8))
+    fig2 = plt.figure(figsize=(8, 8))
     plt.plot(truth_enu_plot[:, 0], truth_enu_plot[:, 1], 'k--', label='Truth')
     plt.plot(res_enu[:, 0], res_enu[:, 1], 'r-', label=args.label)
     plt.xlabel('East (m)')
@@ -112,6 +121,11 @@ def main():
     plt.legend()
     plt.axis('equal')
     plt.grid(True)
+    
+    path2 = os.path.join(output_dir, 'ct_trajectory_2d.png')
+    plt.savefig(path2)
+    print(f"Saved {path2}")
+    plt.close(fig2)
 
     # --- Plot 3: Position Errors ---
     # Interpolate Truth to Result Time
@@ -128,7 +142,7 @@ def main():
     error_horiz = np.sqrt(error_east**2 + error_north**2)
     error_height = res_alt - truth_alt_interp
 
-    plt.figure(figsize=(10, 8))
+    fig3 = plt.figure(figsize=(10, 8))
     
     plt.subplot(3, 1, 1)
     plt.plot(res_time, error_horiz, 'r-', label='Horizontal Error')
@@ -154,14 +168,18 @@ def main():
     plt.legend()
     
     plt.tight_layout()
+    
+    path3 = os.path.join(output_dir, 'ct_position_errors.png')
+    plt.savefig(path3)
+    print(f"Saved {path3}")
+    plt.close(fig3)
 
     # --- Plot 4+: IMU Errors ---
-    output_dir = os.path.dirname(args.result)
     error_files = glob.glob(os.path.join(output_dir, "errors_*.txt"))
     
     for ef in error_files:
         imu_name = os.path.basename(ef).replace("errors_", "").replace(".txt", "")
-        print(f"Plotting errors for: {imu_name}")
+        print(f"Plotting biases for: {imu_name}")
         
         # Format: t, bg(3), ba(3), l(3), r(4)
         err_data = np.loadtxt(ef)
@@ -191,10 +209,11 @@ def main():
         
         axs[1].set_xlabel('Time (s)')
         plt.tight_layout()
-
-    # plt.show()
-    plt.savefig('ct_position.png')
-    print("Saved ct_position.png")
+        
+        path_imu = os.path.join(output_dir, f'ct_bias_{imu_name}.png')
+        plt.savefig(path_imu)
+        print(f"Saved {path_imu}")
+        plt.close(fig)
 
 if __name__ == "__main__":
     main()
