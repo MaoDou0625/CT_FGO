@@ -1,32 +1,98 @@
-# OB_GINS_CT: 多 IMU 紧耦合连续时间解算框架
+# CT_FGO: GNSS/Multi-IMU Tightly-Coupled Continuous-Time Optimization Framework
 
-本项目是一个基于 B-Spline 连续时间轨迹的 GNSS/多 IMU（标准 IMU + 轮式 IMU）紧耦合解算框架。针对轮式 IMU 的特性进行了专门建模，支持在线估计安装误差和杆臂。
+**CT_FGO** is a state-of-the-art continuous-time state estimation framework designed for complex multi-sensor systems, specifically targeting vehicle platforms equipped with Global Navigation Satellite Systems (GNSS) and multiple Inertial Measurement Units (IMUs), including Wheel-mounted IMUs.
 
-## ⚠️ 当前状态：ContinuousTime 分支 (WIP)
+## 🚀 Key Features
 
-**注意：当前仓库中的代码处于架构重构后的初始阶段，尚未经过编译验证和实测。**
+*   **Continuous-Time Trajectory**: Powered by **B-Spline** on $SE(3)$, allowing asynchronous sensor fusion and analytical derivative computation (velocity/acceleration).
+*   **Wheel IMU Specifics**:
+    *   **Wheel Phase Estimation**: Treats wheel rotation phase as a continuous state variable, solving for the absolute rotation angle.
+    *   **Static Gravity Alignment**: Automatically initializes wheel IMU orientation by aligning the Y-axis with the gravity vector during static periods.
+    *   **Dynamic Misalignment Correction**: Estimates and corrects the cross-coupling (misalignment) between the wheel's spin axis (Z) and the radial/tangential axes (X/Y).
+*   **Multi-Sensor Fusion**: Tightly couples GNSS position, Standard IMU (Body), and multiple Wheel IMUs.
+*   **Online Calibration**: Jointly optimizes:
+    *   IMU Biases (Accel/Gyro) modeled as Random Walk.
+    *   Extrinsics (Body-to-Sensor rotation).
+    *   Lever Arms (Body-to-Sensor position).
+    *   Wheel Radius and Odometry Lever Arms.
 
-## 核心特性
-- **多 IMU 支持**：支持同时接入标准 IMU 和多个轮式 IMU。
-- **轮式 IMU 建模**：
-  - 自动处理左右轮安装侧导致的符号差异。
-  - 动态计算轮心杆臂补偿。
-  - 在线估计 IMU 相对于车体的安装旋转误差 ($q_{body\_imu}$)。
-- **误差模型**：
-  - 零偏（Bias）采用一阶高斯-马尔可夫（GM）过程建模，支持相关时间（Correlation Time）配置。
-  - 支持安装参数和轮径的先验约束。
-- **连续时间框架**：基于 Ceres Solver 和 B-Spline 轨迹，实现高频传感器在任意时刻的约束。
+## 🛠️ Dependencies
 
-## 编译要求
-- C++ 20
-- CMake 3.10+
-- Eigen 3
-- Ceres Solver
-- Sophus
-- yaml-cpp
-- glog
+*   **CMake** (>= 3.10)
+*   **Eigen3**
+*   **Sophus** (Source build recommended for $SE(3)$ manifold support)
+*   **Ceres Solver** (For non-linear least squares optimization)
+*   **glog / gflags**
+*   **yaml-cpp**
 
-## 待办事项
-- [ ] 完成首轮编译调试。
-- [ ] 验证 `WheelSpeedFactor` 的雅可比矩阵正确性。
-- [ ] 使用 WID 数据集进行闭环测试。
+## 📦 Build
+
+```bash
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
+## 🏃 Run
+
+```bash
+./bin/ob_gins_ct config/ob_gins_ct.yaml
+```
+
+## ⚙️ Configuration (`config.yaml`)
+
+### Wheel IMU Settings
+Each wheel IMU is configured with specific parameters for the solver:
+
+```yaml
+center_imu4:
+  type: "wheel"
+  side: "right"             # 'left' or 'right' (auto-handles Z-axis sign)
+  file: "path/to/data.txt"
+  # ... standard imu noise params ...
+  
+  # Optimization Weights
+  speed_weight: 10.0        # Weight for Wheel Speed Factor
+  nhc_weight: 10.0          # Weight for Non-Holonomic Constraint
+  attitude_weight_roll: 100.0  # Weight for Wheel Spin Factor (Roll)
+  attitude_weight_yaw: 100.0   # Weight for Wheel Spin Factor (Pitch)
+  
+  # Priors
+  priors:
+    radius_std: 0.005       # Wheel radius prior std dev (m)
+    lever_std: 0.02         # Lever arm prior std dev (m)
+```
+
+## 📊 Visualization & Analysis
+
+### 1. Main Trajectory Analysis
+Use `plot_ct_results.py` to compare the optimized trajectory against Ground Truth (GNSS/INS Reference).
+
+```bash
+python3 plot_ct_results.py --result output/ct_trajectory.txt --truth path/to/truth.txt
+```
+
+### 2. Wheel Phase Analysis
+Use `plot_wheel_phase.py` to visualize the optimized continuous wheel rotation angle. This plot reveals the pure rotation of the wheel, decoupled from the vehicle's body motion.
+
+```bash
+python3 plot_wheel_phase.py --result output/ct_trajectory.txt
+```
+*Note: The script automatically looks for `errors_*.txt` files in the output directory.*
+
+## 📐 Methodological Details
+
+### Static Phase Alignment
+The system automatically detects static periods (default: first 3 seconds) to compute the initial phase offset. It aligns the sensor's Y-axis with the gravity vector, ensuring a robust starting point for the optimization.
+
+### Wheel Spin Gyro Factor
+A custom factor (`WheelSpinGyroFactor`) constrains the relationship between the body angular velocity and the wheel IMU measurements. It includes a **misalignment model** ($k_x, k_y$) to compensate for the Z-axis rotation leaking into X/Y measurements due to imperfect mounting.
+
+$$ \omega_{sensor}^{pred} = q_{bs}^{-1} \otimes \omega_{body} $$
+$$ \omega_{meas}^{corr}.x = \omega_{meas}.x - k_x \cdot \omega_{meas}.z $$
+$$ \omega_{meas}^{corr}.y = \omega_{meas}.y - k_y \cdot \omega_{meas}.z $$
+
+Minimize: $ || \omega_{sensor}^{pred}.xy - \omega_{meas}^{corr}.xy ||^2 $
+
+---
+*Maintained by Xun Yi. Updated Feb 2026.*

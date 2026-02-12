@@ -815,5 +815,35 @@ def main():
         print(f"Saved {path}")
         plt.close(fig)
 
+    # --- Plot 6: Optimized Body Attitude (B-Spline Output) ---
+    # Plot the RPY of the body trajectory itself
+    # Check if it makes sense (e.g. should be smooth, consistent with turn)
+    
+    fig_body, axs_body = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
+    
+    # rpy_traj is in radians, convert to deg
+    rpy_body_deg = rpy_traj * 180.0 / np.pi
+    
+    axs_body[0].plot(t_traj, rpy_body_deg[:, 0], 'k-')
+    axs_body[0].set_title('Body Roll (deg)')
+    axs_body[0].grid(True)
+    
+    axs_body[1].plot(t_traj, rpy_body_deg[:, 1], 'k-')
+    axs_body[1].set_title('Body Pitch (deg)')
+    axs_body[1].grid(True)
+    
+    axs_body[2].plot(t_traj, rpy_body_deg[:, 2], 'k-')
+    axs_body[2].set_title('Body Yaw (deg)')
+    axs_body[2].grid(True)
+    
+    axs_body[2].set_xlabel('Time (s)')
+    fig_body.suptitle('Optimized Body Attitude (B-Spline)')
+    plt.tight_layout()
+    
+    path_body = os.path.join(output_dir, 'ct_body_attitude.png')
+    plt.savefig(path_body)
+    print(f"Saved {path_body}")
+    plt.close(fig_body)
+
 if __name__ == "__main__":
     main()

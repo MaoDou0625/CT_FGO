@@ -67,12 +67,11 @@ struct WheelAttitudeFactor {
         // (Approximation valid for small deviations, but here q_diff represents the spin angle, which is LARGE).
         
         // Wait! q_diff IS the spin angle quaternion. It rotates 360 degrees.
-        // So q_diff = [cos(theta/2), 0, sin(theta/2), 0].
-        // So indeed, x and z components should be zero!
-        // This holds for ANY theta.
+        // If axis is Z (Wheel Axis), then x=0, y=0.
+        // So q_diff = [cos(theta/2), 0, 0, sin(theta/2)].
         
         residuals[0] = q_diff.x() * T(w_r_); // Penalty on Roll axis
-        residuals[1] = q_diff.z() * T(w_y_); // Penalty on Yaw axis
+        residuals[1] = q_diff.y() * T(w_y_); // Penalty on Pitch axis (Assuming Z is rotation axis)
 
         return true;
     }

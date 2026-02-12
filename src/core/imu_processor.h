@@ -108,6 +108,9 @@ public:
 
     void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) override;
 
+    // Wheel Phase Control Points
+    std::vector<double> wheel_phases_; // One per control point
+
 private:
     // Mechanization
     WheelMechanization mechanization_;
@@ -130,6 +133,9 @@ private:
     double nhc_weight_ = 1.0;
     double att_weight_roll_ = 0.0;
     double att_weight_pitch_ = 0.0;
+    
+    // Misalignment params [kx, ky]
+    Eigen::Vector2d misalignment_xy_ = Eigen::Vector2d::Zero();
 };
 
 } // namespace ob_gins

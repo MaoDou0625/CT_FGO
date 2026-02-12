@@ -66,6 +66,29 @@ struct RotationPriorFactor {
     double sigma_;
 };
 
+/**
+ * @brief 2D 向量先验因子 (e.g. for misalignment)
+ */
+struct Vector2PriorFactor {
+    Vector2PriorFactor(const Eigen::Vector2d& prior, double sigma)
+        : prior_(prior), sigma_(sigma) {}
+
+    template <typename T>
+    bool operator()(const T* const v_ptr, T* residuals) const {
+        residuals[0] = (v_ptr[0] - T(prior_[0])) / T(sigma_);
+        residuals[1] = (v_ptr[1] - T(prior_[1])) / T(sigma_);
+        return true;
+    }
+
+    static ceres::CostFunction* Create(const Eigen::Vector2d& prior, double sigma) {
+        return new ceres::AutoDiffCostFunction<Vector2PriorFactor, 2, 2>(
+            new Vector2PriorFactor(prior, sigma));
+    }
+
+    Eigen::Vector2d prior_;
+    double sigma_;
+};
+
 } // namespace factors
 } // namespace ob_gins
 

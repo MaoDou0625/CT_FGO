@@ -5,7 +5,9 @@
 #include "src/factors/ContinuousInertialFactor.h"
 #include "src/factors/WheelNHCFactor.h"
 #include "src/factors/WheelSpeedFactor.h"
-#include "src/factors/WheelGyroFactor.h" // NEW
+#include "src/factors/WheelGyroFactor.h"
+#include "src/factors/WheelSpinGyroFactor.h" // NEW
+#include "src/factors/WheelPhaseFactor.h" // NEW
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
 #include "src/factors/ScalarPriorFactor.h"
@@ -146,6 +148,7 @@ void ImuProcessor::LoadImuNoise(const YAML::Node& config_node) {
 
 bool StandardImuProcessor::LoadConfig(const YAML::Node& config_node, const std::string& imu_name) {
     name_ = imu_name;
+    if (!config_node["file"]) return false;
     file_path_ = config_node["file"].as<std::string>();
     columns_ = config_node["columns"].as<int>();
     rate_hz_ = config_node["rate_hz"].as<double>();
@@ -270,6 +273,24 @@ bool WheelImuProcessor::LoadData(double t_start, double t_end) {
         integrated_attitudes_.push_back(mechanization_.GetAttitude());
     }
 
+    // Initialize Phase Control Points using Gyro Z integration (Approx)
+    // Theta(t) = Integral(w_z)
+    wheel_phases_.clear();
+    double curr_theta = 0.0;
+    
+    // We need phases at spline knots (t0, t0+dt, ...)
+    // Resample/Integrate up to those points
+    
+    // Find start time of spline (usually control_points[0].timestamp())
+    // Let's assume control_points are not created yet? No, they are passed in AddFactors.
+    // We need to init them before AddFactors.
+    // But phases_ size must match control_points.
+    // We'll init them in AddFactors if empty? 
+    // No, better to do it here if we know the timeline.
+    // Actually, AddFactors is where we set up the graph.
+    // Let's defer initialization to AddFactors or assume a fixed size based on config?
+    // Let's init in AddFactors.
+
     return true;
 }
 
@@ -281,6 +302,101 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     if (bg_.empty()) {
         bg_.resize(control_points.size(), Eigen::Vector3d::Zero());
         ba_.resize(control_points.size(), Eigen::Vector3d::Zero());
+    }
+    
+    // Initialize Phases
+    if (wheel_phases_.empty()) {
+        wheel_phases_.resize(control_points.size(), 0.0);
+        // Integrate Gyro Z to fill phases
+        double theta = 0.0;
+        int imu_idx = 0;
+        for (size_t i = 0; i < control_points.size(); ++i) {
+            double t_target = control_points[i].timestamp();
+            while(imu_idx < (int)valid_imu_data_.size() && valid_imu_data_[imu_idx].time < t_target) {
+                theta += valid_imu_data_[imu_idx].dtheta.z(); // Increment
+                imu_idx++;
+            }
+            wheel_phases_[i] = theta;
+        }
+
+        // ---------------------------------------------------------
+        // New: Coarse Phase Alignment (Static Average)
+        // Use static data (aligntime) to compute average accel vector.
+        // Compute rotation angle to align sensor Y with Gravity (Down).
+        // ---------------------------------------------------------
+        
+        // 1. Calculate Mean Accel during static alignment period
+        Eigen::Vector3d acc_sum = Eigen::Vector3d::Zero();
+        int acc_count = 0;
+        
+        // Use t0_spline as start time
+        double t_align_end = t0_spline + 3.0; 
+        
+        for (const auto& imu : valid_imu_data_) {
+            if (imu.time > t_align_end) break;
+            
+            double dt_safe = imu.dt > 1e-6 ? imu.dt : 1.0/rate_hz_;
+            Eigen::Vector3d acc_meas = imu.dvel / dt_safe;
+            
+            // Basic static check
+            if (std::abs(acc_meas.norm() - 9.81) < 1.0) {
+                acc_sum += acc_meas;
+                acc_count++;
+            }
+        }
+        
+        double init_offset = 0.0;
+        
+        if (acc_count > 10) {
+            Eigen::Vector3d acc_mean = acc_sum / acc_count;
+            // acc_mean measures Reaction Force = -g.
+            
+            // Need q_wb average
+            Eigen::Vector3d g_world_up(0, 0, 9.81);
+            
+            // Get q_wb at start (approx)
+            int k0 = findControlPointIndex(t0_spline + 0.1, t0_spline, spline_dt, (int)control_points.size());
+            if (k0 >= 0) {
+                Eigen::Quaterniond q_wb_0 = control_points[k0].pose().so3().unit_quaternion();
+                
+                // g_body_up
+                Eigen::Vector3d g_body_up = q_wb_0.inverse() * g_world_up;
+                
+                // g_hub_up (Zero-Phase Sensor Frame)
+                Eigen::Vector3d g_hub_up = q_body_imu_.inverse() * g_body_up;
+                
+                // We want to find theta such that R_z(theta)^T * g_hub_up has X=0 and Y<0.
+                // R_z(theta)^T * [gx, gy, gz]^T = [gx c + gy s, -gx s + gy c, gz]
+                
+                // 1. Constraint X=0:  gx*cos(th) + gy*sin(th) = 0
+                //    => tan(th) = -gx/gy
+                //    Two solutions, separated by 180 deg.
+                
+                // 2. Constraint Y<0: -gx*sin(th) + gy*cos(th) < 0
+                
+                double gx = g_hub_up.x();
+                double gy = g_hub_up.y();
+                
+                double th1 = std::atan2(-gx, gy);      // Solution 1
+                double th2 = std::atan2(gx, -gy);      // Solution 2 (+180)
+                
+                // Check Y component for th1
+                double y1 = -gx * std::sin(th1) + gy * std::cos(th1);
+                
+                if (y1 < 0) {
+                    init_offset = th1;
+                } else {
+                    init_offset = th2;
+                }
+                
+                LOG(INFO) << "IMU " << name_ << " Static Alignment (3s mean): Computed Offset = " << init_offset * 180.0 / M_PI << " deg";
+            }
+        } else {
+            LOG(WARNING) << "IMU " << name_ << ": Not enough static data for alignment.";
+        }
+
+        // Apply offset to all phases
+        for (auto& p : wheel_phases_) p += init_offset;
     }
 
     problem.AddParameterBlock(q_body_imu_.coeffs().data(), 4);
@@ -295,12 +411,52 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     problem.AddParameterBlock(l_sensor_odopoint_.data(), 3);
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_sensor_odopoint_initial_, prior_lever_std_), nullptr, l_sensor_odopoint_.data());
 
+    // Optimize Misalignment [kx, ky] (with Prior to keep it small)
+    problem.AddParameterBlock(misalignment_xy_.data(), 2);
+    // Add weak prior to keep it close to 0 (e.g. sigma=0.05 approx 3 deg coupling)
+    problem.AddResidualBlock(factors::Vector2PriorFactor::Create(Eigen::Vector2d::Zero(), 0.05), nullptr, misalignment_xy_.data());
+
     problem.AddResidualBlock(factors::RotationPriorFactor::Create(q_body_imu_initial_, 0.01), nullptr, q_body_imu_.coeffs().data());
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_body_sensor_, 0.05), nullptr, l_body_sensor_.data());
 
     for (size_t i = 0; i < control_points.size(); ++i) {
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
+        problem.AddParameterBlock(&wheel_phases_[i], 1); // Phase scalar
+    }
+    
+    // Add Phase Evolution Factors (Constraint between theta_k and theta_k+1)
+    // Based on IMU Gyro Z integration
+    // This connects the phase states
+    
+    // Note: We need to aggregate Gyro Z between knots
+    int start_imu_idx = 0;
+    for (size_t i = 0; i < control_points.size() - 1; ++i) {
+        double t_curr = control_points[i].timestamp();
+        double t_next = control_points[i+1].timestamp();
+        
+        // Find IMUs in this interval
+        double dtheta_z_sum = 0.0;
+        double dt_sum = 0.0;
+        
+        // Find start
+        while(start_imu_idx < (int)valid_imu_data_.size() && valid_imu_data_[start_imu_idx].time <= t_curr) {
+            start_imu_idx++;
+        }
+        
+        int curr_idx = start_imu_idx;
+        while(curr_idx < (int)valid_imu_data_.size() && valid_imu_data_[curr_idx].time <= t_next) {
+            dtheta_z_sum += valid_imu_data_[curr_idx].dtheta.z();
+            dt_sum += valid_imu_data_[curr_idx].dt;
+            curr_idx++;
+        }
+        
+        if (dt_sum > 1e-6) {
+            auto* phase_factor = factors::WheelPhaseFactor::Create(dtheta_z_sum, dt_sum, 1000.0); // High weight for continuity
+            problem.AddResidualBlock(phase_factor, nullptr, 
+                &wheel_phases_[i], &wheel_phases_[i+1], bg_[i].data()
+            );
+        }
     }
 
     for (size_t idx = 0; idx < valid_imu_data_.size(); ++idx) {
@@ -314,19 +470,20 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         Eigen::Vector3d gyro_meas = imu.dtheta / dt;
         Eigen::Vector3d accel_meas = imu.dvel / dt;
 
-        // Add Wheel Gyro Factor (Replaces WheelAttitudeFactor)
-        // Now dynamically corrects bias!
+        // Add Wheel Spin Gyro Factor (Replaces WheelGyroFactor)
         if (att_weight_roll_ > 0 || att_weight_pitch_ > 0) {
-            auto* gyro_factor = factors::WheelGyroFactor::Create(
+            auto* spin_factor = factors::WheelSpinGyroFactor::Create(
                 imu.time, spline_dt, control_points[k].timestamp(),
                 gyro_meas, att_weight_roll_, att_weight_pitch_
             );
-            problem.AddResidualBlock(gyro_factor, new ceres::HuberLoss(1.0),
+            problem.AddResidualBlock(spin_factor, new ceres::HuberLoss(1.0),
                 control_points[k].pose_data(), control_points[k+1].pose_data(), 
                 control_points[k+2].pose_data(), control_points[k+3].pose_data(),
                 bg_[k].data(), bg_[k+1].data(), 
                 bg_[k+2].data(), bg_[k+3].data(),
-                q_body_imu_.coeffs().data()
+                q_body_imu_.coeffs().data(),
+                &wheel_phases_[k], &wheel_phases_[k+1], &wheel_phases_[k+2], &wheel_phases_[k+3],
+                misalignment_xy_.data()
             );
         }
 
@@ -375,8 +532,8 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
     std::string file_name = output_path + "/errors_" + name_ + ".txt";
-    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1)
-    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1);
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1), wheel_phase(1)
+    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1 + 1);
     
     // Also save integrated attitude for debugging
     std::string att_file_name = output_path + "/attitude_" + name_ + ".txt";
@@ -411,6 +568,13 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
         data.push_back(l_sensor_odopoint_.z());
         data.push_back(wheel_radius_);
 
+        // Append optimized wheel phase
+        if (i < wheel_phases_.size()) {
+            data.push_back(wheel_phases_[i]);
+        } else {
+            data.push_back(0.0);
+        }
+
         saver.dump(data);
     }
     
@@ -427,9 +591,66 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
     }
     
     saver.close();
+    
+    // Save Corrected Attitudes (Re-integrated with optimized bias)
+    std::string att_corr_file_name = output_path + "/attitude_corrected_" + name_ + ".txt";
+    FileSaver att_corr_saver(att_corr_file_name, 1 + 4); // t, q(4)
+    
+    Eigen::Quaterniond q_corr = Eigen::Quaterniond::Identity();
+    // Align with initial mechanization? Or just Identity?
+    // Let's use the first mechanization attitude as start to align frame
+    if (!integrated_attitudes_.empty()) q_corr = integrated_attitudes_[0];
+
+    for (size_t i = 0; i < valid_imu_data_.size(); ++i) {
+        const auto& imu = valid_imu_data_[i];
+        double t = imu.time;
+        
+        // 1. Interpolate Bias
+        // Find bg index
+        int k = findControlPointIndex(t, t_start_global, spline_dt, (int)control_points.size());
+        Eigen::Vector3d bg_val = Eigen::Vector3d::Zero();
+        
+        if (k >= 0 && k + 1 < (int)bg_.size()) {
+            double t_k = control_points[k].timestamp();
+            double u = (t - t_k) / spline_dt; // Approximation, spline_dt is knot interval
+            // BSpline control points are spaced by spline_dt.
+            // t_k is start of interval.
+            // Simple linear interp:
+            if (u >= 0 && u <= 1.0) {
+                bg_val = bg_[k] * (1.0 - u) + bg_[k+1] * u;
+            } else {
+                bg_val = bg_[k]; // Clamp
+            }
+        } else if (!bg_.empty()) {
+             bg_val = bg_.front(); // Fallback
+        }
+
+        // 2. Correct dtheta
+        // imu.dtheta is incremental angle. bg_val is rate (rad/s).
+        // dt is imu.dt
+        Eigen::Vector3d dtheta_corr = imu.dtheta - bg_val * imu.dt;
+        
+        // 3. Integrate
+        // q_{k+1} = q_k * exp(0.5 * dtheta)
+        Eigen::Quaterniond dq(1, 0.5 * dtheta_corr.x(), 0.5 * dtheta_corr.y(), 0.5 * dtheta_corr.z());
+        dq.normalize();
+        q_corr = (q_corr * dq).normalized();
+        
+        // 4. Save
+        std::vector<double> att_data;
+        att_data.push_back(t);
+        att_data.push_back(q_corr.x());
+        att_data.push_back(q_corr.y());
+        att_data.push_back(q_corr.z());
+        att_data.push_back(q_corr.w());
+        att_corr_saver.dump(att_data);
+    }
+    att_corr_saver.close();
+
     att_saver.close();
     LOG(INFO) << "Saved errors for " << name_ << " to " << file_name;
-    LOG(INFO) << "Saved attitudes for " << name_ << " to " << att_file_name;
+    LOG(INFO) << "Saved raw attitudes for " << name_ << " to " << att_file_name;
+    LOG(INFO) << "Saved corrected attitudes for " << name_ << " to " << att_corr_file_name;
 }
 
 } // namespace ob_gins
