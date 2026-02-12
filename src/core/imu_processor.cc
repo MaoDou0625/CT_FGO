@@ -235,6 +235,64 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
     side_ = config_node["side"].as<std::string>();
 
     LoadExtrinsics(config_node);
+    
+    // -----------------------------------------------------------------------
+    // Automatic Default Extrinsics Setup for Wheel IMUs
+    // Target: Align Sensor Y-axis with Gravity (DOWN)
+    // 
+    // Assumed Body Frame: X-Forward, Y-Left, Z-Up
+    // Gravity in Body Frame: [0, 0, -9.8] (Vector points Down)
+    // 
+    // Wheel Frame Target: 
+    //   Y-axis -> Points DOWN (aligned with Gravity)
+    //   Z-axis -> Wheel Spin Axis (Outwards)
+    //
+    // Left Wheel (side="left"):
+    //   Spin Axis (Z) points LEFT (same as Body Y)
+    //   So Sensor Z aligns with Body Y [0, 1, 0]
+    //   Target Sensor Y aligns with Body -Z [0, 0, -1]
+    //   Target Sensor X = Y cross Z = (-Z) cross (Y) = [1, 0, 0] (Body X)
+    //   R_body_sensor (Left) = [ 1  0  0 ]
+    //                          [ 0  0 -1 ]
+    //                          [ 0  1  0 ]
+    //
+    // Right Wheel (side="right"):
+    //   Spin Axis (Z) points RIGHT (opposite to Body Y)
+    //   So Sensor Z aligns with Body -Y [0, -1, 0]
+    //   Target Sensor Y aligns with Body -Z [0, 0, -1] (Gravity)
+    //   Target Sensor X = Y cross Z = (-Z) cross (-Y) = [-1, 0, 0] (Body -X? Or X?)
+    //   Let's check: (-k) x (-j) = k x j = -i. So X points BACK.
+    //   R_body_sensor (Right) = [-1  0  0 ]
+    //                           [ 0  0 -1 ]
+    //                           [ 0 -1  0 ]
+    // -----------------------------------------------------------------------
+    
+    // Override q_body_imu_initial_ based on side if not manually set (or always override?)
+    // User instruction implies setting a "default", so let's set it here.
+    // If config has specific "extrinsic_rotation", LoadExtrinsics already set it.
+    // But usually config has 0,0,0. We should provide a better default.
+    
+    // Only override if config is effectively zero (identity)
+    if (q_body_imu_initial_.isApprox(Eigen::Quaterniond::Identity(), 1e-3)) {
+        Eigen::Matrix3d R_bs;
+        if (side_ == "left") {
+            // X_s = X_b, Y_s = -Z_b, Z_s = Y_b
+            R_bs << 1,  0,  0,
+                    0,  0,  1,
+                    0, -1,  0;
+        } else {
+            // Right Side
+            // X_s = -X_b, Y_s = -Z_b, Z_s = -Y_b
+            R_bs << -1,  0,  0,
+                     0,  0, -1,
+                     0, -1,  0;
+        }
+        q_body_imu_initial_ = Eigen::Quaterniond(R_bs);
+        q_body_imu_ = q_body_imu_initial_;
+        
+        LOG(INFO) << "WheelImuProcessor (" << name_ << "): Applied default rotation for side '" << side_ << "'";
+    }
+
     if (config_node["nhc_weight"]) nhc_weight_ = config_node["nhc_weight"].as<double>();
     if (config_node["speed_weight"]) speed_weight_ = config_node["speed_weight"].as<double>();
     if (config_node["attitude_weight_roll"]) att_weight_roll_ = config_node["attitude_weight_roll"].as<double>();
