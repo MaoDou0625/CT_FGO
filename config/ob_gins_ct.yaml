@@ -1,14 +1,14 @@
 # OB_GINS Continuous Time Configuration (Ref: wid.yaml)
 
 # Data files
-gnssfile: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
-outputpath: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/output"
+gnssfile: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+outputpath: "D:/Code/dataset/WID/Datasets/transformedData2/output"
 save_multi_imu: true
 
 # Main Body IMU
 imu_main:
   type: "standard"
-  file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Body_IMU.txt"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Body_IMU.txt"
   columns: 7
   rate_hz: 120
   antlever: [ 0.0, 0.0, 0.0 ]
@@ -24,7 +24,7 @@ imu_main:
 center_imu1:
   type: "wheel"
   side: "left"
-  file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU1.txt"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU1.txt"
   columns: 9
   rate_hz: 120
   antlever: [ 2.32, 0.7180, 1.4]
@@ -46,7 +46,7 @@ center_imu1:
 center_imu2:
   type: "wheel"
   side: "left"
-  file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU2.txt"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU2.txt"
   columns: 9
   rate_hz: 120
   antlever: [ -0.29, 0.718, 1.4 ]
@@ -69,7 +69,7 @@ center_imu2:
 center_imu3:
   type: "wheel"
   side: "right"
-  file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU3.txt"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU3.txt"
   columns: 9
   rate_hz: 120
   antlever: [ 2.32, -0.7180, 1.4]
@@ -92,7 +92,7 @@ center_imu3:
 center_imu4:
   type: "wheel"
   side: "right"
-  file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU4.txt"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU4.txt"
   columns: 9
   rate_hz: 120
   antlever: [ -0.29, -0.750, 1.4 ]
@@ -130,6 +130,6 @@ debug:
 
 comparison:
   enable: true
-  python_script: "/home/xunyi/code/CT_FGO/plot_ct_results.py"
-  truth_file: "/home/xunyi/code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+  python_script: "D:/Code/CT_FGO/plot_ct_results.py"
+  truth_file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
   label: "OB_GINS_CT"
