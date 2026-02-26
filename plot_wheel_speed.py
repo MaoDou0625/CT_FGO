@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def analyze_and_plot():
     # Paths
     base_dir = "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/"
-    out_dir = "D:/Code/dataset/WID/Datasets/transformedData2/output/speed_analysis_60_80"
+    out_dir = "D:/Code/dataset/WID/Datasets/transformedData2/output/speed_analysis_50_100"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -21,7 +21,7 @@ def analyze_and_plot():
     gnss = np.loadtxt(gnss_file)
     t0 = gnss[0, 0]
     
-    mask_gnss = (gnss[:, 0] >= t0 + 60) & (gnss[:, 0] <= t0 + 80)
+    mask_gnss = (gnss[:, 0] >= t0 + 50) & (gnss[:, 0] <= t0 + 100)
     gnss_focus = gnss[mask_gnss]
     
     t_gnss = gnss_focus[:, 0] - t0
@@ -31,7 +31,7 @@ def analyze_and_plot():
     
     # Plotting setup
     fig, axes = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
-    fig.suptitle("Wheel Z-axis Rotation, Wheel Speed and GNSS Speed (60s - 80s)", fontsize=16)
+    fig.suptitle("Wheel Z-axis Rotation, Wheel Speed and GNSS Speed (50s - 100s)", fontsize=16)
     
     wheel_radius = 0.3 # from yaml
     
@@ -44,7 +44,7 @@ def analyze_and_plot():
     for name, file_path in wheel_files.items():
         if os.path.exists(file_path):
             imu = np.loadtxt(file_path)
-            mask_imu = (imu[:, 0] >= t0 + 60) & (imu[:, 0] <= t0 + 80)
+            mask_imu = (imu[:, 0] >= t0 + 50) & (imu[:, 0] <= t0 + 100)
             imu_focus = imu[mask_imu]
             
             t_imu = imu_focus[:, 0] - t0
@@ -96,7 +96,7 @@ def analyze_and_plot():
     
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
-    save_path = os.path.join(out_dir, "wheel_gnss_speed_60_80s.png")
+    save_path = os.path.join(out_dir, "wheel_gnss_speed_50_100s.png")
     plt.savefig(save_path, dpi=300)
     print(f"Plot saved successfully to: {save_path}")
 
