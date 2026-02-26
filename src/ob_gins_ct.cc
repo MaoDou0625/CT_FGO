@@ -276,10 +276,9 @@ int main(int argc, char** argv) {
     }
 
     // 7. Comparison Script
-    if (config["comparison"] && config["comparison"]["enable"].as<bool>()) {
-        std::string python_exe = "python3"; 
-        std::string script = config["comparison"]["python_script"].as<std::string>();
-        std::string truth = config["comparison"]["truth_file"].as<std::string>();
+        if (config["comparison"] && config["comparison"]["enable"].as<bool>()) {
+            std::string python_exe = "python";
+            std::string script = config["comparison"]["python_script"].as<std::string>();        std::string truth = config["comparison"]["truth_file"].as<std::string>();
         
         std::string cmd = python_exe + " " + script + " --result " + result_file + " --truth " + truth;
         LOG(INFO) << "Running comparison: " << cmd;
