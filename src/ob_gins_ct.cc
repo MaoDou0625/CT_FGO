@@ -211,7 +211,43 @@ int main(int argc, char** argv) {
         int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
-        auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, gnss_sqrt_info);
+        // Detect if stationary at gnss.time
+        double max_angular_rate = 0.0;
+        int wheel_imu_count = 0;
+
+        for (const auto& processor : imu_processors) {
+            if (processor->GetName().find("imu_main") == std::string::npos) {
+                const auto& imu_data = processor->GetImuData();
+                auto it = std::lower_bound(imu_data.begin(), imu_data.end(), gnss.time, 
+                    [](const IMU& a, double t) { return a.time < t; });
+                
+                if (it != imu_data.end() && it != imu_data.begin()) {
+                    double rate_sum = 0;
+                    int count = 0;
+                    // Average over a window of ~20 samples (around 0.16s at 120Hz)
+                    auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
+                    auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
+                    
+                    for(auto it2 = start_it; it2 != end_it; ++it2) {
+                        rate_sum += it2->dtheta.norm() / it2->dt;
+                        count++;
+                    }
+                    if (count > 0) {
+                        max_angular_rate = std::max(max_angular_rate, rate_sum / count);
+                        wheel_imu_count++;
+                    }
+                }
+            }
+        }
+
+        Matrix3d current_gnss_sqrt_info = gnss_sqrt_info;
+        if (wheel_imu_count > 0 && max_angular_rate < 0.05) {
+            // If stationary, reduce GNSS weight to prevent position drift
+            current_gnss_sqrt_info = gnss_sqrt_info * 0.01; 
+            LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_rate=" << max_angular_rate << "), reducing GNSS weight.";
+        }
+
+        auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, current_gnss_sqrt_info);
         problem.AddResidualBlock(factor, nullptr, 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
