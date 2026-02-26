@@ -73,6 +73,9 @@ protected:
     // Extrinsics: Rotation from Body to IMU
     Eigen::Quaterniond q_body_imu_initial_ = Eigen::Quaterniond::Identity();
     Eigen::Quaterniond q_body_imu_ = Eigen::Quaterniond::Identity();
+
+    // Time offset (t_sys = t_imu + td)
+    double td_ = 0.0;
 };
 
 // 标准IMU处理器

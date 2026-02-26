@@ -20,6 +20,7 @@ struct WheelSpeedFactor {
                     const T* const l_body_sensor_ptr,
                     const T* const radius_ptr,
                     const T* const l_sensor_odopoint_ptr,
+                    const T* const td_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -37,8 +38,9 @@ struct WheelSpeedFactor {
         Eigen::Map<const Vec3T> l_body_sensor(l_body_sensor_ptr);
         T radius = *radius_ptr;
         Eigen::Map<const Vec3T> l_sensor_odopoint(l_sensor_odopoint_ptr);
+        T td = td_ptr[0];
 
-        T t_val = T(t_);
+        T t_val = T(t_) + td;
         T t_start = T(t0_) + T(dt_);
         T u = (t_val - t_start) / T(dt_);
 
@@ -70,7 +72,8 @@ struct WheelSpeedFactor {
             4,          // q_body_imu
             3,          // l_body_sensor
             1,          // radius
-            3           // l_sensor_odopoint
+            3,          // l_sensor_odopoint
+            1           // td
         >(new WheelSpeedFactor(t, dt, t0, gyro_meas, weight));
     }
 

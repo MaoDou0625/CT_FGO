@@ -18,6 +18,7 @@ struct WheelNHCFactor {
                     const T* const q_body_imu_ptr,
                     const T* const l_body_sensor_ptr,
                     const T* const l_sensor_odopoint_ptr,
+                    const T* const td_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -33,8 +34,9 @@ struct WheelNHCFactor {
         Eigen::Map<const QuatT> q_body_imu(q_body_imu_ptr);
         Eigen::Map<const Vec3T> l_body_sensor(l_body_sensor_ptr);
         Eigen::Map<const Vec3T> l_sensor_odopoint(l_sensor_odopoint_ptr);
+        T td = td_ptr[0];
 
-        T t_val = T(t_);
+        T t_val = T(t_) + td;
         T t_start = T(t0_) + T(dt_);
         T u = (t_val - t_start) / T(dt_);
 
@@ -60,7 +62,7 @@ struct WheelNHCFactor {
 
     static ceres::CostFunction* Create(double t, double dt, double t0, double weight, const Eigen::Vector3d& /*l_sensor_odopoint*/) {
         // Note: l_sensor_odopoint is now passed as a parameter block, initial value ignored here
-        return new ceres::AutoDiffCostFunction<WheelNHCFactor, 2, 7, 7, 7, 7, 4, 3, 3>(
+        return new ceres::AutoDiffCostFunction<WheelNHCFactor, 2, 7, 7, 7, 7, 4, 3, 3, 1>(
             new WheelNHCFactor(t, dt, t0, weight));
     }
 

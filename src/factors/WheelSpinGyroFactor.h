@@ -26,6 +26,7 @@ struct WheelSpinGyroFactor {
                     const T* const q_body_hub_ptr, // Static Extrinsics (Body-to-Hub)
                     const T* const theta0, const T* const theta1, const T* const theta2, const T* const theta3,
                     const T* const misalign_xy, // [k_x, k_y]
+                    const T* const td_ptr,
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -39,8 +40,9 @@ struct WheelSpinGyroFactor {
         Eigen::Map<const Vec3T> bg1_vec(bg1);
         Eigen::Map<const Vec3T> bg2_vec(bg2);
         Eigen::Map<const QuatT> q_bh(q_body_hub_ptr); // Body-to-Hub (Static)
+        T td = td_ptr[0];
 
-        T t_val = T(t_);
+        T t_val = T(t_) + td;
         T t_start = T(t0_) + T(dt_);
         T u = (t_val - t_start) / T(dt_);
 
@@ -98,7 +100,8 @@ struct WheelSpinGyroFactor {
             3, 3, 3, 3, // Biases
             4,          // q_body_hub
             1, 1, 1, 1, // Thetas
-            2           // Misalignment [kx, ky]
+            2,          // Misalignment [kx, ky]
+            1           // td
         >(new WheelSpinGyroFactor(t, dt, t0, gyro_meas, wx, wy));
     }
 

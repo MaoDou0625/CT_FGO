@@ -22,7 +22,8 @@ struct ContinuousInertialFactor {
     bool operator()(const T* const cp0, const T* const cp1, const T* const cp2, const T* const cp3,
                     const T* const bg0, const T* const bg1, const T* const bg2, const T* const bg3,
                     const T* const ba0, const T* const ba1, const T* const ba2, const T* const ba3,
-                    const T* const l_ga_ptr, // New Parameter Block
+                    const T* const l_ga_ptr, // Lever arm
+                    const T* const td_ptr,   // Time offset
                     T* residuals) const {
         
         using SE3T = Sophus::SE3<T>;
@@ -41,11 +42,12 @@ struct ContinuousInertialFactor {
         Eigen::Map<const Vec3T> ba2_vec(ba2);
         
         Eigen::Map<const Vec3T> l_ga(l_ga_ptr);
+        T td = td_ptr[0];
 
         (void)bg0; (void)bg3; (void)ba0; (void)ba3;
 
         // 2. Evaluate Spline
-        T t_val = T(t_meas_);
+        T t_val = T(t_meas_) + td;
         T t_start = T(t0_) + T(dt_);
         T u = (t_val - t_start) / T(dt_);
 
@@ -105,11 +107,13 @@ struct ContinuousInertialFactor {
         // 4 Gyro Biases (3 each)
         // 4 Accel Biases (3 each)
         // 1 Lever Arm (3)
+        // 1 Time Offset td (1)
         return new ceres::AutoDiffCostFunction<ContinuousInertialFactor, 6, 
             7, 7, 7, 7,  // CP 0-3
             3, 3, 3, 3,  // Bg 0-3
             3, 3, 3, 3,  // Ba 0-3
-            3            // l_ga
+            3,           // l_ga
+            1            // td
         >(new ContinuousInertialFactor(t_meas, accel, gyro, g, omega_ie, dt, t0, sigma_a, sigma_g));
     }
 

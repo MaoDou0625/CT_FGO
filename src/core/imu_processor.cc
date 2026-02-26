@@ -35,8 +35,8 @@ void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
     std::string file_name = output_path + "/errors_" + name_ + ".txt";
-    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4)
-    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4);
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), td(1)
+    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 1);
 
     for (size_t i = 0; i < control_points.size(); ++i) {
         double t = control_points[i].timestamp();
@@ -60,6 +60,8 @@ void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<
         data.push_back(q_body_imu_.y());
         data.push_back(q_body_imu_.z());
         data.push_back(q_body_imu_.w());
+
+        data.push_back(td_);
 
         saver.dump(data);
     }
@@ -179,13 +181,18 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
     problem.AddParameterBlock(l_body_sensor_.data(), 3);
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_body_sensor_, 0.05), nullptr, l_body_sensor_.data());
 
+    problem.AddParameterBlock(&td_, 1);
+    problem.AddResidualBlock(factors::ScalarPriorFactor::Create(0.0, 0.01), nullptr, &td_); // Prior: mean 0, std 10ms
+
     for (size_t i = 0; i < control_points.size(); ++i) {
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
     }
 
     for (const auto& imu : valid_imu_data_) {
-        int k = findControlPointIndex(imu.time, t0_spline, spline_dt, (int)control_points.size());
+        // Find index using time + td (approximate for knot finding)
+        double t_sys = imu.time + td_; // Use current estimate or 0
+        int k = findControlPointIndex(t_sys, t0_spline, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
         double dt = imu.dt;
         if (dt < 1e-6) continue;
@@ -204,7 +211,8 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
             bg_[k+2].data(), bg_[k+3].data(),
             ba_[k].data(), ba_[k+1].data(), 
             ba_[k+2].data(), ba_[k+3].data(),
-            l_body_sensor_.data()
+            l_body_sensor_.data(),
+            &td_
         );
     }
 }
@@ -474,6 +482,9 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     // Add weak prior to keep it close to 0 (e.g. sigma=0.05 approx 3 deg coupling)
     problem.AddResidualBlock(factors::Vector2PriorFactor::Create(Eigen::Vector2d::Zero(), 0.05), nullptr, misalignment_xy_.data());
 
+    problem.AddParameterBlock(&td_, 1);
+    problem.AddResidualBlock(factors::ScalarPriorFactor::Create(0.0, 0.01), nullptr, &td_); // Prior: mean 0, std 10ms
+
     problem.AddResidualBlock(factors::RotationPriorFactor::Create(q_body_imu_initial_, 0.01), nullptr, q_body_imu_.coeffs().data());
     problem.AddResidualBlock(factors::LeverArmPriorFactor::Create(l_body_sensor_, 0.05), nullptr, l_body_sensor_.data());
 
@@ -519,7 +530,9 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
 
     for (size_t idx = 0; idx < valid_imu_data_.size(); ++idx) {
         const auto& imu = valid_imu_data_[idx];
-        int k = findControlPointIndex(imu.time, t0_spline, spline_dt, (int)control_points.size());
+        
+        double t_sys = imu.time + td_;
+        int k = findControlPointIndex(t_sys, t0_spline, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
         double dt = imu.dt > 0 ? imu.dt : 1.0/rate_hz_;
@@ -541,7 +554,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
                 bg_[k+2].data(), bg_[k+3].data(),
                 q_body_imu_.coeffs().data(),
                 &wheel_phases_[k], &wheel_phases_[k+1], &wheel_phases_[k+2], &wheel_phases_[k+3],
-                misalignment_xy_.data()
+                misalignment_xy_.data(),
+                &td_
             );
         }
 
@@ -554,7 +568,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
             q_body_imu_.coeffs().data(),
             l_body_sensor_.data(),
-            l_sensor_odopoint_.data()
+            l_sensor_odopoint_.data(),
+            &td_
         );
 
 
@@ -569,7 +584,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
             q_body_imu_.coeffs().data(),
             l_body_sensor_.data(),
             &wheel_radius_,
-            l_sensor_odopoint_.data()
+            l_sensor_odopoint_.data(),
+            &td_
         );
     }
 }
@@ -590,8 +606,8 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
     std::string file_name = output_path + "/errors_" + name_ + ".txt";
-    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1), wheel_phase(1)
-    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1 + 1);
+    // Columns: t, bg(3), ba(3), lever_arm(3), q_body_imu(4), l_sensor_odopoint(3), wheel_radius(1), wheel_phase(1), td(1)
+    FileSaver saver(file_name, 1 + 3 + 3 + 3 + 4 + 3 + 1 + 1 + 1);
     
     // Also save integrated attitude for debugging
     std::string att_file_name = output_path + "/attitude_" + name_ + ".txt";
@@ -632,6 +648,8 @@ void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::ve
         } else {
             data.push_back(0.0);
         }
+
+        data.push_back(td_);
 
         saver.dump(data);
     }
