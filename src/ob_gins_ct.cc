@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
         // Detect if stationary at gnss.time
-        double max_angular_rate = 0.0;
+        double max_wheel_speed = 0.0;
         int wheel_imu_count = 0;
 
         for (const auto& processor : imu_processors) {
@@ -222,18 +222,18 @@ int main(int argc, char** argv) {
                     [](const IMU& a, double t) { return a.time < t; });
                 
                 if (it != imu_data.end() && it != imu_data.begin()) {
-                    double rate_sum = 0;
+                    double speed_sum = 0;
                     int count = 0;
                     // Average over a window of ~20 samples (around 0.16s at 120Hz)
                     auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
                     auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
                     
                     for(auto it2 = start_it; it2 != end_it; ++it2) {
-                        rate_sum += it2->dtheta.norm() / it2->dt;
+                        speed_sum += std::abs(it2->odovel / it2->dt);
                         count++;
                     }
                     if (count > 0) {
-                        max_angular_rate = std::max(max_angular_rate, rate_sum / count);
+                        max_wheel_speed = std::max(max_wheel_speed, speed_sum / count);
                         wheel_imu_count++;
                     }
                 }
@@ -241,10 +241,12 @@ int main(int argc, char** argv) {
         }
 
         Matrix3d current_gnss_sqrt_info = gnss_sqrt_info;
-        if (wheel_imu_count > 0 && max_angular_rate < 0.05) {
-            // If stationary, reduce GNSS weight to prevent position drift
-            current_gnss_sqrt_info = gnss_sqrt_info * 0.01; 
-            LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_rate=" << max_angular_rate << "), reducing GNSS weight.";
+        if (wheel_imu_count > 0 && max_wheel_speed < 0.05) {
+            // If stationary, reduce GNSS weight significantly to prevent position drift
+            current_gnss_sqrt_info = gnss_sqrt_info * 0.001; 
+            LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_speed=" << max_wheel_speed << "), reducing GNSS weight.";
+        } else {
+            LOG_EVERY_N(INFO, 100) << "Not stationary at t=" << gnss.time << " (wheel_imu_count=" << wheel_imu_count << ", max_speed=" << max_wheel_speed << ")";
         }
 
         auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, current_gnss_sqrt_info);
