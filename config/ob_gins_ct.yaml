@@ -130,6 +130,6 @@ debug:
 
 comparison:
   enable: true
-  python_script: "D:/Code/CT_FGO/plot_ct_results.py"
+  python_script: "./plot_ct_results.py"
   truth_file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
   label: "OB_GINS_CT"
