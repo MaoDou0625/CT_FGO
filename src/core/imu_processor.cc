@@ -31,6 +31,17 @@ std::unique_ptr<ImuProcessor> ImuProcessor::Create(const std::string& type) {
 }
 // --------------------------------------------------------------------
 
+std::vector<double*> ImuProcessor::GetVariablesToDrop(double t_drop_start, double t_drop_end, const std::vector<spline::ControlPoint>& cps) {
+    std::vector<double*> drop_addrs;
+    for (size_t i = 0; i < cps.size(); ++i) {
+        if (cps[i].timestamp() >= t_drop_start && cps[i].timestamp() < t_drop_end) {
+            if (i < bg_.size()) drop_addrs.push_back(bg_[i].data());
+            if (i < ba_.size()) drop_addrs.push_back(ba_[i].data());
+        }
+    }
+    return drop_addrs;
+}
+
 void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {
     if (bg_.empty() || bg_.size() != control_points.size()) return;
 
@@ -181,7 +192,8 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
     for (size_t i = 0; i < control_points.size(); ++i) {
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
-        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt) {
+        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt || 
+            control_points[i].timestamp() > t_window_end + 3.0 * spline_dt) {
             problem.SetParameterBlockConstant(bg_[i].data());
             problem.SetParameterBlockConstant(ba_[i].data());
         }
@@ -494,7 +506,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
         problem.AddParameterBlock(&wheel_phases_[i], 1); // Phase scalar
-        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt) {
+        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt || 
+            control_points[i].timestamp() > t_window_end + 3.0 * spline_dt) {
             problem.SetParameterBlockConstant(bg_[i].data());
             problem.SetParameterBlockConstant(ba_[i].data());
             problem.SetParameterBlockConstant(&wheel_phases_[i]);
@@ -612,6 +625,16 @@ void WheelImuProcessor::AddBiasFactors(ceres::Problem& problem,
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, acc_bias_rw_, acc_corr_time_),
             nullptr, ba_[i].data(), ba_[i+1].data());
     }
+}
+
+std::vector<double*> WheelImuProcessor::GetVariablesToDrop(double t_drop_start, double t_drop_end, const std::vector<spline::ControlPoint>& cps) {
+    std::vector<double*> drop_addrs = ImuProcessor::GetVariablesToDrop(t_drop_start, t_drop_end, cps);
+    for (size_t i = 0; i < cps.size(); ++i) {
+        if (cps[i].timestamp() >= t_drop_start && cps[i].timestamp() < t_drop_end) {
+            if (i < wheel_phases_.size()) drop_addrs.push_back(&wheel_phases_[i]);
+        }
+    }
+    return drop_addrs;
 }
 
 void WheelImuProcessor::SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) {

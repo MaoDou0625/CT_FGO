@@ -44,6 +44,8 @@ public:
                                 double spline_dt,
                                 double t_window_start, double t_window_end) = 0;
 
+    virtual std::vector<double*> GetVariablesToDrop(double t_drop_start, double t_drop_end, const std::vector<spline::ControlPoint>& cps);
+
     const std::vector<IMU>& GetImuData() const { return valid_imu_data_; }
     const std::string& GetName() const { return name_; }
     const std::string& GetFilePath() const { return file_path_; }
@@ -121,6 +123,8 @@ public:
                         std::vector<spline::ControlPoint>& control_points, 
                         double spline_dt,
                         double t_window_start, double t_window_end) override;
+
+    std::vector<double*> GetVariablesToDrop(double t_drop_start, double t_drop_end, const std::vector<spline::ControlPoint>& cps) override;
 
     void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) override;
 

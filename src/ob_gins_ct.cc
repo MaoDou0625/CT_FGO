@@ -227,31 +227,19 @@ int main(int argc, char** argv) {
             problem.AddParameterBlock(cp.pose_data(), 7);
             problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
             
-            // If we have last_marg_info, we don't freeze variables just because they are old,
-            // UNLESS they are truly out of the sliding window and already marginalized.
-            // Wait, variables that are marginalized are removed from optimization. 
-            // We can still freeze them so Ceres doesn't change them, but they might be in keep_block_addr!
-            // Wait: If a variable is in keep_block_addr, it MUST NOT be constant, otherwise its Jacobian is 0 and it won't affect the prior!
-            // Actually, variables that were completely dropped are just left alone (not added to problem or frozen).
-            // But here we add ALL control points to the problem.
             if (cp.timestamp() < current_window_start - 3.0 * spline_dt) {
                 problem.SetParameterBlockConstant(cp.pose_data());
                 cp.set_state(ControlPoint::State::MARGINALIZED);
             } else if (cp.timestamp() <= current_window_end + 3.0 * spline_dt) {
                 cp.set_state(ControlPoint::State::ACTIVE);
+            } else {
+                problem.SetParameterBlockConstant(cp.pose_data());
             }
         }
 
         if (last_marg_info && last_marg_info->keep_block_size.size() > 0) {
             auto* factor = new MarginalizationFactor(last_marg_info);
             problem.AddResidualBlock(factor, nullptr, last_marg_info->keep_block_addr);
-            
-            // Ensure variables in the prior are not constant (unfreeze them if they were frozen)
-            for (auto* addr : last_marg_info->keep_block_addr) {
-                if (problem.HasParameterBlock(addr) && problem.IsParameterBlockConstant(addr)) {
-                    problem.SetParameterBlockVariable(addr);
-                }
-            }
         }
 
         problem.AddParameterBlock(gnss_lever_arm.data(), 3);
@@ -324,11 +312,19 @@ int main(int argc, char** argv) {
         double next_window_start = current_window_start + step_size;
         std::vector<double*> drop_set_addrs;
         
+        double t_drop_start = current_window_start - 3.0 * spline_dt;
+        double t_drop_end = next_window_start - 3.0 * spline_dt;
+
         for (auto& cp : control_points) {
-            if (cp.timestamp() >= current_window_start - 3.0 * spline_dt && 
-                cp.timestamp() < next_window_start - 3.0 * spline_dt) {
+            if (cp.timestamp() >= t_drop_start && cp.timestamp() < t_drop_end) {
                 drop_set_addrs.push_back(cp.pose_data());
             }
+        }
+
+        // Add variables from IMU processors that are leaving the window
+        for (auto& processor : imu_processors) {
+            std::vector<double*> processor_drops = processor->GetVariablesToDrop(t_drop_start, t_drop_end, control_points);
+            drop_set_addrs.insert(drop_set_addrs.end(), processor_drops.begin(), processor_drops.end());
         }
         
         if (!drop_set_addrs.empty() && next_window_start < t_end_global) {

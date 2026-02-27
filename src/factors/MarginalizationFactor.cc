@@ -229,6 +229,11 @@ void MarginalizationInfo::Marginalize() {
         linearized_jacobians = Eigen::MatrixXd::Zero(n, n);
         linearized_residuals = Eigen::VectorXd::Zero(n);
     }
+
+    for (auto it : factors) {
+        delete it;
+    }
+    factors.clear();
 }
 
 std::vector<double*> MarginalizationInfo::GetParameterBlocks(std::unordered_map<long, double*>& addr_shift) {
