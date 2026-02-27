@@ -64,6 +64,7 @@ add_executable(ob_gins_ct
     src/fileio/fileloader.cc
     src/fileio/filesaver.cc
     src/factors/pose_manifold.cc
+    src/factors/MarginalizationFactor.cc
 )
 target_link_libraries(ob_gins_ct 
     Ceres::ceres 

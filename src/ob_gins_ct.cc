@@ -31,6 +31,7 @@ DECLARE_int32(v);
 #include "src/factors/ContinuousGnssFactor.h"
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
+#include "src/factors/MarginalizationFactor.h"
 #include "src/core/imu_processor.h"
 #include "src/core/data_buffer.h"
 #include "src/core/window_manager.h"
@@ -211,6 +212,7 @@ int main(int argc, char** argv) {
     std::vector<ControlPoint> control_points = SplineInitializer::InitializeFromPath(path_for_init, spline_dt);
 
     double current_window_start = t_start_global;
+    MarginalizationInfo* last_marg_info = nullptr;
     
     while (current_window_start < t_end_global) {
         double current_window_end = std::min(current_window_start + window_size, t_end_global);
@@ -224,12 +226,30 @@ int main(int argc, char** argv) {
             problem.AddParameterBlock(cp.pose_data(), 7);
             problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
             
-            // Task 2.3: Freeze historical states (Marginalization)
+            // If we have last_marg_info, we don't freeze variables just because they are old,
+            // UNLESS they are truly out of the sliding window and already marginalized.
+            // Wait, variables that are marginalized are removed from optimization. 
+            // We can still freeze them so Ceres doesn't change them, but they might be in keep_block_addr!
+            // Wait: If a variable is in keep_block_addr, it MUST NOT be constant, otherwise its Jacobian is 0 and it won't affect the prior!
+            // Actually, variables that were completely dropped are just left alone (not added to problem or frozen).
+            // But here we add ALL control points to the problem.
             if (cp.timestamp() < current_window_start - 3.0 * spline_dt) {
                 problem.SetParameterBlockConstant(cp.pose_data());
                 cp.set_state(ControlPoint::State::MARGINALIZED);
             } else if (cp.timestamp() <= current_window_end + 3.0 * spline_dt) {
                 cp.set_state(ControlPoint::State::ACTIVE);
+            }
+        }
+
+        if (last_marg_info && last_marg_info->keep_block_size.size() > 0) {
+            auto* factor = new MarginalizationFactor(last_marg_info);
+            problem.AddResidualBlock(factor, nullptr, last_marg_info->keep_block_addr);
+            
+            // Ensure variables in the prior are not constant (unfreeze them if they were frozen)
+            for (auto* addr : last_marg_info->keep_block_addr) {
+                if (problem.HasParameterBlock(addr) && problem.IsParameterBlockConstant(addr)) {
+                    problem.SetParameterBlockVariable(addr);
+                }
             }
         }
 
@@ -300,6 +320,54 @@ int main(int argc, char** argv) {
         ceres::Solve(options, &problem, &summary);
         LOG(INFO) << "Window Solved. Cost: " << summary.final_cost << " / Iterations: " << summary.iterations.size();
         
+        // 2. Marginalization
+        double next_window_start = current_window_start + step_size;
+        std::vector<double*> drop_set_addrs;
+        
+        for (auto& cp : control_points) {
+            if (cp.timestamp() >= current_window_start - 3.0 * spline_dt && 
+                cp.timestamp() < next_window_start - 3.0 * spline_dt) {
+                drop_set_addrs.push_back(cp.pose_data());
+            }
+        }
+        
+        if (!drop_set_addrs.empty() && next_window_start < t_end_global) {
+            MarginalizationInfo* marg_info = new MarginalizationInfo();
+            
+            std::vector<ceres::ResidualBlockId> residual_blocks;
+            problem.GetResidualBlocks(&residual_blocks);
+            
+            for (auto& rb : residual_blocks) {
+                std::vector<double*> param_blocks;
+                problem.GetParameterBlocksForResidualBlock(rb, &param_blocks);
+                
+                bool involves_drop = false;
+                std::vector<int> drop_set;
+                for (size_t i = 0; i < param_blocks.size(); i++) {
+                    if (std::find(drop_set_addrs.begin(), drop_set_addrs.end(), param_blocks[i]) != drop_set_addrs.end()) {
+                        involves_drop = true;
+                        drop_set.push_back(i);
+                    }
+                }
+                
+                if (involves_drop) {
+                    auto* cost_func = const_cast<ceres::CostFunction*>(problem.GetCostFunctionForResidualBlock(rb));
+                    auto* loss_func = const_cast<ceres::LossFunction*>(problem.GetLossFunctionForResidualBlock(rb));
+                    
+                    ResidualBlockInfo* rb_info = new ResidualBlockInfo(cost_func, loss_func, param_blocks, drop_set);
+                    marg_info->AddResidualBlockInfo(rb_info);
+                }
+            }
+            
+            marg_info->PreMarginalize();
+            marg_info->Marginalize();
+            
+            if (last_marg_info) {
+                delete last_marg_info;
+            }
+            last_marg_info = marg_info;
+        }
+
         current_window_start += step_size;
     }
 
