@@ -41,13 +41,13 @@ public:
     void AddResidualBlockInfo(ResidualBlockInfo* residual_block_info);
     void PreMarginalize();
     void Marginalize();
-    std::vector<double*> GetParameterBlocks(std::unordered_map<long, double*>& addr_shift);
+    std::vector<double*> GetParameterBlocks(std::unordered_map<uint64_t, double*>& addr_shift);
 
     std::vector<ResidualBlockInfo*> factors;
     int m, n; // m: size of marginalized variables, n: size of remaining variables
-    std::unordered_map<long, int> parameter_block_size; // <memory address, local size>
-    std::unordered_map<long, int> parameter_block_global_size; 
-    std::unordered_map<long, int> parameter_block_idx;  // <memory address, starting index in H>
+    std::unordered_map<uint64_t, int> parameter_block_size; // <memory address, local size>
+    std::unordered_map<uint64_t, int> parameter_block_global_size; 
+    std::unordered_map<uint64_t, int> parameter_block_idx;  // <memory address, starting index in H>
     std::vector<double*> keep_block_addr;
     std::vector<int> keep_block_size;
     std::vector<int> keep_block_global_size;
@@ -56,7 +56,7 @@ public:
     Eigen::VectorXd linearized_residuals;
     
     // For evaluating marginalized factor
-    std::unordered_map<long, Eigen::VectorXd> keep_block_data; // snapshot of data at marginalization
+    std::unordered_map<uint64_t, Eigen::VectorXd> keep_block_data; // snapshot of data at marginalization
 };
 
 class MarginalizationFactor : public ceres::CostFunction {

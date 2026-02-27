@@ -93,7 +93,7 @@ void MarginalizationInfo::AddResidualBlockInfo(ResidualBlockInfo* residual_block
     std::vector<int> block_sizes = residual_block_info->cost_function->parameter_block_sizes();
 
     for (size_t i = 0; i < parameter_blocks.size(); i++) {
-        long addr = reinterpret_cast<long>(parameter_blocks[i]);
+        uint64_t addr = reinterpret_cast<uint64_t>(parameter_blocks[i]);
         if (parameter_block_size.find(addr) == parameter_block_size.end()) {
             parameter_block_global_size[addr] = block_sizes[i];
             if (block_sizes[i] == 7) {
@@ -109,7 +109,7 @@ void MarginalizationInfo::PreMarginalize() {
     for (auto it : factors) {
         it->Evaluate();
         for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
-            long addr = reinterpret_cast<long>(it->parameter_blocks[i]);
+            uint64_t addr = reinterpret_cast<uint64_t>(it->parameter_blocks[i]);
             int size = it->cost_function->parameter_block_sizes()[i];
             if (keep_block_data.find(addr) == keep_block_data.end()) {
                 Eigen::VectorXd data(size);
@@ -128,13 +128,13 @@ void MarginalizationInfo::Marginalize() {
         it.second = parameter_block_size[it.first];
     }
 
-    std::vector<long> drop_addrs;
-    std::vector<long> keep_addrs;
+    std::vector<uint64_t> drop_addrs;
+    std::vector<uint64_t> keep_addrs;
     
     // figure out which are dropped and which are kept
     for (auto it : factors) {
         for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
-            long addr = reinterpret_cast<long>(it->parameter_blocks[i]);
+            uint64_t addr = reinterpret_cast<uint64_t>(it->parameter_blocks[i]);
             bool is_drop = false;
             for (int j = 0; j < static_cast<int>(it->drop_set.size()); j++) {
                 if (it->parameter_blocks[i] == it->parameter_blocks[it->drop_set[j]]) {
@@ -153,13 +153,13 @@ void MarginalizationInfo::Marginalize() {
     }
 
     m = 0;
-    for (long addr : drop_addrs) {
+    for (uint64_t addr : drop_addrs) {
         parameter_block_idx[addr] = m;
         m += parameter_block_size[addr];
     }
 
     n = 0;
-    for (long addr : keep_addrs) {
+    for (uint64_t addr : keep_addrs) {
         parameter_block_idx[addr] = m + n;
         n += parameter_block_size[addr];
         keep_block_addr.push_back(reinterpret_cast<double*>(addr));
@@ -174,7 +174,7 @@ void MarginalizationInfo::Marginalize() {
 
     for (auto it : factors) {
         for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
-            long addr_i = reinterpret_cast<long>(it->parameter_blocks[i]);
+            uint64_t addr_i = reinterpret_cast<uint64_t>(it->parameter_blocks[i]);
             int idx_i = parameter_block_idx[addr_i];
             int size_i = parameter_block_size[addr_i];
             
@@ -182,7 +182,7 @@ void MarginalizationInfo::Marginalize() {
             b.segment(idx_i, size_i) += jacobian_i.transpose() * it->residuals;
             
             for (int j = i; j < static_cast<int>(it->parameter_blocks.size()); j++) {
-                long addr_j = reinterpret_cast<long>(it->parameter_blocks[j]);
+                uint64_t addr_j = reinterpret_cast<uint64_t>(it->parameter_blocks[j]);
                 int idx_j = parameter_block_idx[addr_j];
                 int size_j = parameter_block_size[addr_j];
                 
@@ -236,10 +236,10 @@ void MarginalizationInfo::Marginalize() {
     factors.clear();
 }
 
-std::vector<double*> MarginalizationInfo::GetParameterBlocks(std::unordered_map<long, double*>& addr_shift) {
+std::vector<double*> MarginalizationInfo::GetParameterBlocks(std::unordered_map<uint64_t, double*>& addr_shift) {
     std::vector<double*> keep_block_addr_shifted;
     for (int i = 0; i < static_cast<int>(keep_block_addr.size()); i++) {
-        long addr = reinterpret_cast<long>(keep_block_addr[i]);
+        uint64_t addr = reinterpret_cast<uint64_t>(keep_block_addr[i]);
         if (addr_shift.find(addr) != addr_shift.end()) {
             keep_block_addr_shifted.push_back(addr_shift[addr]);
         } else {
@@ -266,7 +266,7 @@ bool MarginalizationFactor::Evaluate(double const *const *parameters, double *re
     for (int i = 0; i < static_cast<int>(marginalization_info_->keep_block_size.size()); i++) {
         int local_size = marginalization_info_->keep_block_size[i];
         int global_size = marginalization_info_->keep_block_global_size[i];
-        long addr = reinterpret_cast<long>(marginalization_info_->keep_block_addr[i]);
+        uint64_t addr = reinterpret_cast<uint64_t>(marginalization_info_->keep_block_addr[i]);
         int idx = marginalization_info_->parameter_block_idx[addr] - m;
         
         Eigen::Map<const Eigen::VectorXd> x(parameters[i], global_size);
@@ -288,7 +288,7 @@ bool MarginalizationFactor::Evaluate(double const *const *parameters, double *re
             if (jacobians[i]) {
                 int local_size = marginalization_info_->keep_block_size[i];
                 int global_size = marginalization_info_->keep_block_global_size[i];
-                long addr = reinterpret_cast<long>(marginalization_info_->keep_block_addr[i]);
+                uint64_t addr = reinterpret_cast<uint64_t>(marginalization_info_->keep_block_addr[i]);
                 int idx = marginalization_info_->parameter_block_idx[addr] - m;
 
                 Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> jacobian_i(jacobians[i], n, global_size);
