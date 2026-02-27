@@ -195,105 +195,113 @@ int main(int argc, char** argv) {
         omega_ie_l.setZero();
     }
 
-    // 4. Build Optimization Problem
-    ceres::Problem problem;
-    
-    // 初始化样条曲线控制点 (将 GNSS 转换为局部 ENU 进行初始化)
+    // 4. Build Optimization Problem (Sliding Window MVP)
+    double window_size = config["window_size"] ? config["window_size"].as<double>() : 10.0;
+    double step_size = config["step_size"] ? config["step_size"].as<double>() : 5.0;
+
+    // Initialize all control points upfront for the offline MVP
     std::vector<GNSS> gnss_enu = valid_gnss;
     std::vector<std::pair<double, Sophus::SE3d>> path_for_init;
 
     for (auto& g : gnss_enu) {
-        // Use global2local to convert BLH to local frame (ENU/NED)
-        // Store result in g.blh temporarily
         g.blh = earth.global2local(valid_gnss.front().blh, g.blh); 
-        
-        // Prepare path for SplineInitializer
-        // Assume identity rotation for initialization if not available
         path_for_init.emplace_back(g.time, Sophus::SE3d(Eigen::Quaterniond::Identity(), g.blh));
     }
 
     std::vector<ControlPoint> control_points = SplineInitializer::InitializeFromPath(path_for_init, spline_dt);
 
-    // 设置位姿流形
-    for (auto& cp : control_points) {
-        problem.AddParameterBlock(cp.pose_data(), 7);
-        problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
-        // Biases are now managed by ImuProcessors individually
-    }
-
-    // 添加 GNSS 因子
-    // Body Frame is defined as GNSS Center, so Lever Arm is ZERO.
-    Eigen::Vector3d gnss_lever_arm = Eigen::Vector3d::Zero();
-    problem.AddParameterBlock(gnss_lever_arm.data(), 3);
-    problem.SetParameterBlockConstant(gnss_lever_arm.data());
-
-    Eigen::Vector3d gnss_std(1.0/0.1, 1.0/0.1, 1.0/0.2);
-    Matrix3d gnss_sqrt_info = gnss_std.asDiagonal(); 
-    for (const auto& gnss : gnss_enu) {
-        int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, (int)control_points.size());
-        if (k < 0 || k + 3 >= (int)control_points.size()) continue;
-
-        // Detect if stationary at gnss.time
-        double max_wheel_speed = 0.0;
-        int wheel_imu_count = 0;
-
-        for (const auto& processor : imu_processors) {
-            if (processor->GetName().find("imu_main") == std::string::npos) {
-                const auto& imu_data = processor->GetImuData();
-                auto it = std::lower_bound(imu_data.begin(), imu_data.end(), gnss.time, 
-                    [](const IMU& a, double t) { return a.time < t; });
-                
-                if (it != imu_data.end() && it != imu_data.begin()) {
-                    double speed_sum = 0;
-                    int count = 0;
-                    // Average over a window of ~20 samples (around 0.16s at 120Hz)
-                    auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
-                    auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
-                    
-                    for(auto it2 = start_it; it2 != end_it; ++it2) {
-                        speed_sum += std::abs(it2->odovel / it2->dt);
-                        count++;
-                    }
-                    if (count > 0) {
-                        max_wheel_speed = std::max(max_wheel_speed, speed_sum / count);
-                        wheel_imu_count++;
-                    }
-                }
+    double current_window_start = t_start_global;
+    
+    while (current_window_start < t_end_global) {
+        double current_window_end = std::min(current_window_start + window_size, t_end_global);
+        
+        LOG(INFO) << "Optimizing Window: [" << std::fixed << current_window_start << ", " << current_window_end << "]";
+        
+        ceres::Problem problem;
+        
+        // Setup Manifolds and freeze historical states
+        for (auto& cp : control_points) {
+            problem.AddParameterBlock(cp.pose_data(), 7);
+            problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
+            
+            // Task 2.3: Freeze historical states (Marginalization)
+            if (cp.timestamp() < current_window_start - 3.0 * spline_dt) {
+                problem.SetParameterBlockConstant(cp.pose_data());
+                cp.set_state(ControlPoint::State::MARGINALIZED);
+            } else if (cp.timestamp() <= current_window_end + 3.0 * spline_dt) {
+                cp.set_state(ControlPoint::State::ACTIVE);
             }
         }
 
-        Matrix3d current_gnss_sqrt_info = gnss_sqrt_info;
-        if (wheel_imu_count > 0 && max_wheel_speed < 0.05) {
-            // If stationary, reduce GNSS weight significantly to prevent position drift
-            current_gnss_sqrt_info = gnss_sqrt_info * 0.001; 
-            LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_speed=" << max_wheel_speed << "), reducing GNSS weight.";
-        } else {
-            LOG_EVERY_N(INFO, 100) << "Not stationary at t=" << gnss.time << " (wheel_imu_count=" << wheel_imu_count << ", max_speed=" << max_wheel_speed << ")";
+        Eigen::Vector3d gnss_lever_arm = Eigen::Vector3d::Zero();
+        problem.AddParameterBlock(gnss_lever_arm.data(), 3);
+        problem.SetParameterBlockConstant(gnss_lever_arm.data());
+
+        Eigen::Vector3d gnss_std(1.0/0.1, 1.0/0.1, 1.0/0.2);
+        Matrix3d gnss_sqrt_info = gnss_std.asDiagonal(); 
+        
+        for (const auto& gnss : gnss_enu) {
+            if (gnss.time < current_window_start || gnss.time >= current_window_end) continue;
+            
+            int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, (int)control_points.size());
+            if (k < 0 || k + 3 >= (int)control_points.size()) continue;
+
+            double max_wheel_speed = 0.0;
+            int wheel_imu_count = 0;
+
+            for (const auto& processor : imu_processors) {
+                if (processor->GetName().find("imu_main") == std::string::npos) {
+                    const auto& imu_data = processor->GetImuData();
+                    auto it = std::lower_bound(imu_data.begin(), imu_data.end(), gnss.time, 
+                        [](const IMU& a, double t) { return a.time < t; });
+                    
+                    if (it != imu_data.end() && it != imu_data.begin()) {
+                        double speed_sum = 0;
+                        int count = 0;
+                        auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
+                        auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
+                        
+                        for(auto it2 = start_it; it2 != end_it; ++it2) {
+                            speed_sum += std::abs(it2->odovel / it2->dt);
+                            count++;
+                        }
+                        if (count > 0) {
+                            max_wheel_speed = std::max(max_wheel_speed, speed_sum / count);
+                            wheel_imu_count++;
+                        }
+                    }
+                }
+            }
+
+            Matrix3d current_gnss_sqrt_info = gnss_sqrt_info;
+            if (wheel_imu_count > 0 && max_wheel_speed < 0.05) {
+                current_gnss_sqrt_info = gnss_sqrt_info * 0.001; 
+            }
+
+            auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, current_gnss_sqrt_info);
+            problem.AddResidualBlock(factor, nullptr, 
+                control_points[k].pose_data(), control_points[k+1].pose_data(), 
+                control_points[k+2].pose_data(), control_points[k+3].pose_data(),
+                gnss_lever_arm.data()
+            );
         }
 
-        auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, current_gnss_sqrt_info);
-        problem.AddResidualBlock(factor, nullptr, 
-            control_points[k].pose_data(), control_points[k+1].pose_data(), 
-            control_points[k+2].pose_data(), control_points[k+3].pose_data(),
-            gnss_lever_arm.data() // GNSS lever arm is zero
-        );
+        for (auto& processor : imu_processors) {
+            processor->AddFactors(problem, control_points, spline_dt, t_start_global, gravity_l, omega_ie_l, current_window_start, current_window_end);
+            processor->AddBiasFactors(problem, control_points, spline_dt, current_window_start, current_window_end);
+        }
+
+        ceres::Solver::Options options;
+        options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+        options.max_num_iterations = config["num_iterations"] ? config["num_iterations"].as<int>() : 10;
+        options.minimizer_progress_to_stdout = false; // Mute for multi-window
+        
+        ceres::Solver::Summary summary;
+        ceres::Solve(options, &problem, &summary);
+        LOG(INFO) << "Window Solved. Cost: " << summary.final_cost << " / Iterations: " << summary.iterations.size();
+        
+        current_window_start += step_size;
     }
-
-    // 添加所有 IMU 约束 (Standard + Wheel)
-    for (auto& processor : imu_processors) {
-        processor->AddFactors(problem, control_points, spline_dt, t_start_global, gravity_l, omega_ie_l);
-        processor->AddBiasFactors(problem, control_points, spline_dt);
-    }
-
-    // 5. Solve
-    ceres::Solver::Options options;
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options.max_num_iterations = config["num_iterations"] ? config["num_iterations"].as<int>() : 20;
-    options.minimizer_progress_to_stdout = true;
-
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
-    LOG(INFO) << summary.BriefReport();
 
     // 6. Save Results
     std::string result_file = output_path + "/ct_trajectory.txt";

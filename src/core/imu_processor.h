@@ -36,11 +36,13 @@ public:
                             std::vector<spline::ControlPoint>& control_points, 
                             double spline_dt, double t0_spline,
                             const Eigen::Vector3d& gravity_vec, 
-                            const Eigen::Vector3d& omega_ie_local) = 0;
+                            const Eigen::Vector3d& omega_ie_local,
+                            double t_window_start, double t_window_end) = 0;
     
     virtual void AddBiasFactors(ceres::Problem& problem, 
                                 std::vector<spline::ControlPoint>& control_points, 
-                                double spline_dt) = 0;
+                                double spline_dt,
+                                double t_window_start, double t_window_end) = 0;
 
     const std::vector<IMU>& GetImuData() const { return valid_imu_data_; }
     const std::string& GetName() const { return name_; }
@@ -94,11 +96,13 @@ public:
                     std::vector<spline::ControlPoint>& control_points, 
                     double spline_dt, double t0_spline,
                     const Eigen::Vector3d& gravity_vec, 
-                    const Eigen::Vector3d& omega_ie_local) override;
+                    const Eigen::Vector3d& omega_ie_local,
+                    double t_window_start, double t_window_end) override;
 
     void AddBiasFactors(ceres::Problem& problem, 
                         std::vector<spline::ControlPoint>& control_points, 
-                        double spline_dt) override;
+                        double spline_dt,
+                        double t_window_start, double t_window_end) override;
 };
 
 // 轮式IMU处理器
@@ -110,11 +114,13 @@ public:
                     std::vector<spline::ControlPoint>& control_points, 
                     double spline_dt, double t0_spline,
                     const Eigen::Vector3d& gravity_vec, 
-                    const Eigen::Vector3d& omega_ie_local) override;
+                    const Eigen::Vector3d& omega_ie_local,
+                    double t_window_start, double t_window_end) override;
 
     void AddBiasFactors(ceres::Problem& problem, 
                         std::vector<spline::ControlPoint>& control_points, 
-                        double spline_dt) override;
+                        double spline_dt,
+                        double t_window_start, double t_window_end) override;
 
     void SaveErrors(const std::string& output_path, const std::vector<spline::ControlPoint>& control_points, double spline_dt, double t_start_global) override;
 

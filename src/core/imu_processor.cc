@@ -161,7 +161,8 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
                                       std::vector<spline::ControlPoint>& control_points, 
                                       double spline_dt, double t0_spline,
                                       const Eigen::Vector3d& gravity_vec, 
-                                      const Eigen::Vector3d& omega_ie_local) {
+                                      const Eigen::Vector3d& omega_ie_local,
+                                      double t_window_start, double t_window_end) {
     if (bg_.empty()) {
         bg_.resize(control_points.size(), Eigen::Vector3d::Zero());
         ba_.resize(control_points.size(), Eigen::Vector3d::Zero());
@@ -180,11 +181,16 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
     for (size_t i = 0; i < control_points.size(); ++i) {
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
+        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt) {
+            problem.SetParameterBlockConstant(bg_[i].data());
+            problem.SetParameterBlockConstant(ba_[i].data());
+        }
     }
 
     for (const auto& imu : valid_imu_data_) {
         // Find index using time + td (approximate for knot finding)
         double t_sys = imu.time + td_; // Use current estimate or 0
+        if (t_sys < t_window_start || t_sys >= t_window_end) continue;
         int k = findControlPointIndex(t_sys, t0_spline, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
         double dt = imu.dt;
@@ -212,9 +218,11 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
 
 void StandardImuProcessor::AddBiasFactors(ceres::Problem& problem, 
                                           std::vector<spline::ControlPoint>& control_points, 
-                                          double spline_dt) {
+                                          double spline_dt,
+                                          double t_window_start, double t_window_end) {
     if (bg_.empty()) return;
     for (size_t i = 0; i < bg_.size() - 1; ++i) {
+        if (control_points[i].timestamp() < t_window_start || control_points[i].timestamp() >= t_window_end) continue;
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, gyr_bias_rw_, gyr_corr_time_),
             nullptr, bg_[i].data(), bg_[i+1].data());
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, acc_bias_rw_, acc_corr_time_),
@@ -357,7 +365,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
                                    std::vector<spline::ControlPoint>& control_points, 
                                    double spline_dt, double t0_spline,
                                    const Eigen::Vector3d& gravity_vec, 
-                                   const Eigen::Vector3d& omega_ie_local) {
+                                   const Eigen::Vector3d& omega_ie_local,
+                                   double t_window_start, double t_window_end) {
     if (bg_.empty()) {
         bg_.resize(control_points.size(), Eigen::Vector3d::Zero());
         ba_.resize(control_points.size(), Eigen::Vector3d::Zero());
@@ -485,6 +494,11 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
         problem.AddParameterBlock(&wheel_phases_[i], 1); // Phase scalar
+        if (control_points[i].timestamp() < t_window_start - 3.0 * spline_dt) {
+            problem.SetParameterBlockConstant(bg_[i].data());
+            problem.SetParameterBlockConstant(ba_[i].data());
+            problem.SetParameterBlockConstant(&wheel_phases_[i]);
+        }
     }
     
     // Add Phase Evolution Factors (Constraint between theta_k and theta_k+1)
@@ -496,6 +510,8 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
     for (size_t i = 0; i < control_points.size() - 1; ++i) {
         double t_curr = control_points[i].timestamp();
         double t_next = control_points[i+1].timestamp();
+        
+        if (t_curr < t_window_start || t_curr >= t_window_end) continue;
         
         // Find IMUs in this interval
         double dtheta_z_sum = 0.0;
@@ -525,6 +541,7 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
         const auto& imu = valid_imu_data_[idx];
         
         double t_sys = imu.time + td_;
+        if (t_sys < t_window_start || t_sys >= t_window_end) continue;
         int k = findControlPointIndex(t_sys, t0_spline, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
@@ -585,9 +602,11 @@ void WheelImuProcessor::AddFactors(ceres::Problem& problem,
 
 void WheelImuProcessor::AddBiasFactors(ceres::Problem& problem, 
                                        std::vector<spline::ControlPoint>& control_points, 
-                                       double spline_dt) {
+                                       double spline_dt,
+                                       double t_window_start, double t_window_end) {
     if (bg_.empty()) return;
     for (size_t i = 0; i < bg_.size() - 1; ++i) {
+        if (control_points[i].timestamp() < t_window_start || control_points[i].timestamp() >= t_window_end) continue;
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, gyr_bias_rw_, gyr_corr_time_),
             nullptr, bg_[i].data(), bg_[i+1].data());
         problem.AddResidualBlock(factors::BiasRandomWalkFactor::Create(spline_dt, acc_bias_rw_, acc_corr_time_),

@@ -11,10 +11,19 @@ class ControlPoint {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    ControlPoint() : timestamp_(0.0) {}
+    enum class State {
+        UNINITIALIZED,
+        ACTIVE,
+        MARGINALIZED
+    };
+
+    ControlPoint() : timestamp_(0.0), state_(State::UNINITIALIZED) {}
 
     ControlPoint(double t, const Sophus::SE3d& pose) 
-        : timestamp_(t), pose_(pose) {}
+        : timestamp_(t), pose_(pose), state_(State::UNINITIALIZED) {}
+
+    State get_state() const { return state_; }
+    void set_state(State s) { state_ = s; }
 
     // Raw data access for Ceres (parameter blocks)
     // Sophus::SE3d data layout: quaternion (4) + translation (3) usually, 
@@ -33,6 +42,7 @@ public:
 private:
     double timestamp_;
     Sophus::SE3d pose_;
+    State state_;
 };
 
 } // namespace spline
