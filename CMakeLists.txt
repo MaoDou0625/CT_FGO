@@ -58,6 +58,7 @@ add_executable(ob_gins_ct
     src/ob_gins_ct.cc
     src/core/imu_processor.cc
     src/core/data_buffer.cc
+    src/core/window_manager.cc
     src/common/debug.cc
     src/common/interpolation.cc
     src/fileio/fileloader.cc

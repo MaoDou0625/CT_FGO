@@ -33,6 +33,7 @@ DECLARE_int32(v);
 #include "src/factors/PriorFactors.h"
 #include "src/core/imu_processor.h"
 #include "src/core/data_buffer.h"
+#include "src/core/window_manager.h"
 
 using namespace ob_gins;
 using namespace ob_gins::spline;
