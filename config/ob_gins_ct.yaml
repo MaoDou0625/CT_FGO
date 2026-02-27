@@ -2,7 +2,7 @@
 
 # Data files
 gnssfile: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
-outputpath: "D:/Code/dataset/WID/Datasets/transformedData2/output3"
+outputpath: "D:/Code/dataset/WID/Datasets/transformedData2/output4"
 save_multi_imu: true
 
 # Main Body IMU

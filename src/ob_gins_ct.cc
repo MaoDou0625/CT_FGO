@@ -213,6 +213,7 @@ int main(int argc, char** argv) {
 
     double current_window_start = t_start_global;
     MarginalizationInfo* last_marg_info = nullptr;
+    Eigen::Vector3d gnss_lever_arm = Eigen::Vector3d::Zero();
     
     while (current_window_start < t_end_global) {
         double current_window_end = std::min(current_window_start + window_size, t_end_global);
@@ -253,7 +254,6 @@ int main(int argc, char** argv) {
             }
         }
 
-        Eigen::Vector3d gnss_lever_arm = Eigen::Vector3d::Zero();
         problem.AddParameterBlock(gnss_lever_arm.data(), 3);
         problem.SetParameterBlockConstant(gnss_lever_arm.data());
 
