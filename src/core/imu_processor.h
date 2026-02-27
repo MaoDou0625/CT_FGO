@@ -10,6 +10,7 @@
 #include <ceres/ceres.h>
 
 #include "src/common/types.h"
+#include "src/core/data_buffer.h"
 #include "src/spline/BSplineEvaluator.h"
 #include "src/core/wheel_mechanization.h"
 
@@ -27,7 +28,10 @@ public:
     static std::unique_ptr<ImuProcessor> Create(const std::string& type);
 
     virtual bool LoadConfig(const YAML::Node& config_node, const std::string& imu_name) = 0;
-    virtual bool LoadData(double t_start, double t_end) = 0;
+    
+    // Instead of reading file, fetch data from buffer
+    virtual bool FetchDataFromBuffer(const class DataBuffer& buffer, double t_start, double t_end) = 0;
+
     virtual void AddFactors(ceres::Problem& problem, 
                             std::vector<spline::ControlPoint>& control_points, 
                             double spline_dt, double t0_spline,
@@ -40,6 +44,9 @@ public:
 
     const std::vector<IMU>& GetImuData() const { return valid_imu_data_; }
     const std::string& GetName() const { return name_; }
+    const std::string& GetFilePath() const { return file_path_; }
+    int GetColumns() const { return columns_; }
+    double GetRateHz() const { return rate_hz_; }
 
     double* GetLeverArmData() { return l_body_sensor_.data(); }
 
@@ -61,7 +68,7 @@ protected:
     double acc_corr_time_ = 3600.0; // 默认 1 小时
     double gyr_corr_time_ = 3600.0;
 
-    bool LoadImuFileAndFilter(double t_start, double t_end);
+    bool FetchDataFromBufferInternal(const DataBuffer& buffer, double t_start, double t_end);
     Eigen::Vector3d LoadLeverArm(const YAML::Node& config_node, const std::string& key);
     void LoadExtrinsics(const YAML::Node& config_node);
     void LoadImuNoise(const YAML::Node& config_node);
@@ -82,7 +89,7 @@ protected:
 class StandardImuProcessor : public ImuProcessor {
 public:
     bool LoadConfig(const YAML::Node& config_node, const std::string& imu_name) override;
-    bool LoadData(double t_start, double t_end) override;
+    bool FetchDataFromBuffer(const class DataBuffer& buffer, double t_start, double t_end) override;
     void AddFactors(ceres::Problem& problem, 
                     std::vector<spline::ControlPoint>& control_points, 
                     double spline_dt, double t0_spline,
@@ -98,7 +105,7 @@ public:
 class WheelImuProcessor : public ImuProcessor {
 public:
     bool LoadConfig(const YAML::Node& config_node, const std::string& imu_name) override;
-    bool LoadData(double t_start, double t_end) override;
+    bool FetchDataFromBuffer(const class DataBuffer& buffer, double t_start, double t_end) override;
     void AddFactors(ceres::Problem& problem, 
                     std::vector<spline::ControlPoint>& control_points, 
                     double spline_dt, double t0_spline,

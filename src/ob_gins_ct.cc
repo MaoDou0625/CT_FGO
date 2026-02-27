@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <algorithm>
+#include <memory>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -31,6 +32,7 @@ DECLARE_int32(v);
 #include "src/factors/BiasRandomWalkFactor.h"
 #include "src/factors/PriorFactors.h"
 #include "src/core/imu_processor.h"
+#include "src/core/data_buffer.h"
 
 using namespace ob_gins;
 using namespace ob_gins::spline;
@@ -66,30 +68,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(output_path);
     }
 
-    // 2. Load Data - GNSS First (for initial time window and origin)
-    LOG(INFO) << "Loading GNSS data...";
-    std::string gnss_path = config["gnssfile"].as<std::string>();
-    GnssFileLoader gnss_loader(gnss_path);
-
-    std::vector<GNSS> gnss_data;
-    while (!gnss_loader.isEof()) {
-        gnss_data.push_back(gnss_loader.next());
-    }
-    if (gnss_data.empty()) {
-        LOG(ERROR) << "Empty GNSS data loaded.";
-        return -1;
-    }
-
-    double t_start_global = gnss_data.front().time;
-    double t_end_global = gnss_data.back().time;
-
-    if (config["starttime"]) t_start_global = std::max(t_start_global, config["starttime"].as<double>());
-    if (config["endtime"]) t_end_global = std::min(t_end_global, config["endtime"].as<double>());
-
-    LOG(INFO) << "Initial Time window from GNSS: " << std::fixed << t_start_global << " to " << t_end_global 
-              << " (Duration: " << (t_end_global - t_start_global) << "s)";
-
-    // Store all ImuProcessors
+    // 2. Load Data and Process Imus
+    LOG(INFO) << "Creating IMU Processors...";
     std::vector<std::unique_ptr<ImuProcessor>> imu_processors;
     
     // Iterate through config to find all IMU entries
@@ -117,13 +97,61 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // Load data for all IMUs and adjust global time window
+    // Setup DataBuffer and Loaders
+    DataBuffer data_buffer;
+    std::string gnss_path = config["gnssfile"].as<std::string>();
+    GnssFileLoader gnss_loader(gnss_path);
+    
+    struct ImuLoaderContext {
+        std::string name;
+        std::unique_ptr<ImuFileLoader> loader;
+    };
+    std::vector<ImuLoaderContext> imu_loaders;
     for (const auto& processor : imu_processors) {
-        if (!processor->LoadData(t_start_global, t_end_global)) {
-            LOG(ERROR) << "Failed to load data for IMU: " << processor->GetName();
+        imu_loaders.push_back({
+            processor->GetName(),
+            std::make_unique<ImuFileLoader>(processor->GetFilePath(), processor->GetColumns(), processor->GetRateHz())
+        });
+    }
+
+    LOG(INFO) << "Streaming data into buffer...";
+    bool all_eof = false;
+    while (!all_eof) {
+        all_eof = true;
+        
+        if (!gnss_loader.isEof()) {
+            data_buffer.AddGnssData(gnss_loader.next());
+            all_eof = false;
+        }
+
+        for (auto& ctx : imu_loaders) {
+            if (!ctx.loader->isEof()) {
+                data_buffer.AddImuData(ctx.name, ctx.loader->next());
+                all_eof = false;
+            }
+        }
+    }
+
+    double t_start_global = config["starttime"] ? config["starttime"].as<double>() : data_buffer.GetEarliestTime();
+    double t_end_global = config["endtime"] ? config["endtime"].as<double>() : data_buffer.GetLatestTime();
+
+    // Include GNSS in the intersection
+    auto gnss_data_all = data_buffer.GetGnssData(0.0, 1e15);
+    if (!gnss_data_all.empty()) {
+        t_start_global = std::max(t_start_global, gnss_data_all.front().time);
+        t_end_global = std::min(t_end_global, gnss_data_all.back().time);
+    }
+
+    LOG(INFO) << "Initial Time window from Buffer: " << std::fixed << t_start_global << " to " << t_end_global 
+              << " (Duration: " << (t_end_global - t_start_global) << "s)";
+
+    // Fetch data for all IMUs from buffer and adjust global time window
+    for (const auto& processor : imu_processors) {
+        if (!processor->FetchDataFromBuffer(data_buffer, t_start_global, t_end_global)) {
+            LOG(ERROR) << "Failed to fetch data for IMU: " << processor->GetName();
             return -1;
         }
-        // Adjust global time window based on actual loaded IMU data
+        // Adjust global time window based on actual fetched IMU data
         if (!processor->GetImuData().empty()) {
             t_start_global = std::max(t_start_global, processor->GetImuData().front().time);
             t_end_global = std::min(t_end_global, processor->GetImuData().back().time);
@@ -133,18 +161,11 @@ int main(int argc, char** argv) {
     // Filter GNSS data based on final global time window
     GNSS origin_gnss;
     bool origin_set = false;
-    std::vector<GNSS> valid_gnss;
+    std::vector<GNSS> valid_gnss = data_buffer.GetGnssData(t_start_global, t_end_global);
     
-    for (const auto& gnss : gnss_data) {
-        if (gnss.time >= t_start_global) {
-            if (!origin_set) {
-                origin_gnss = gnss;
-                origin_set = true;
-            }
-            if (gnss.time <= t_end_global) {
-                valid_gnss.push_back(gnss);
-            }
-        }
+    if (!valid_gnss.empty()) {
+        origin_gnss = valid_gnss.front();
+        origin_set = true;
     }
     
     if (!origin_set || valid_gnss.empty()) {

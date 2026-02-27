@@ -69,15 +69,8 @@ void ImuProcessor::SaveErrors(const std::string& output_path, const std::vector<
     LOG(INFO) << "Saved errors for " << name_ << " to " << file_name;
 }
 
-bool ImuProcessor::LoadImuFileAndFilter(double t_start, double t_end) {
-    ImuFileLoader imu_loader(file_path_, columns_, rate_hz_);
-    while (!imu_loader.isEof()) {
-        all_imu_data_.push_back(imu_loader.next());
-    }
-    if (all_imu_data_.empty()) return false;
-    for (const auto& imu : all_imu_data_) {
-        if (imu.time >= t_start && imu.time <= t_end) valid_imu_data_.push_back(imu);
-    }
+bool ImuProcessor::FetchDataFromBufferInternal(const DataBuffer& buffer, double t_start, double t_end) {
+    valid_imu_data_ = buffer.GetImuData(name_, t_start, t_end);
     return !valid_imu_data_.empty();
 }
 
@@ -160,8 +153,8 @@ bool StandardImuProcessor::LoadConfig(const YAML::Node& config_node, const std::
     return true;
 }
 
-bool StandardImuProcessor::LoadData(double t_start, double t_end) {
-    return LoadImuFileAndFilter(t_start, t_end);
+bool StandardImuProcessor::FetchDataFromBuffer(const DataBuffer& buffer, double t_start, double t_end) {
+    return FetchDataFromBufferInternal(buffer, t_start, t_end);
 }
 
 void StandardImuProcessor::AddFactors(ceres::Problem& problem, 
@@ -320,8 +313,8 @@ bool WheelImuProcessor::LoadConfig(const YAML::Node& config_node, const std::str
     return true;
 }
 
-bool WheelImuProcessor::LoadData(double t_start, double t_end) {
-    if (!LoadImuFileAndFilter(t_start, t_end)) return false;
+bool WheelImuProcessor::FetchDataFromBuffer(const DataBuffer& buffer, double t_start, double t_end) {
+    if (!FetchDataFromBufferInternal(buffer, t_start, t_end)) return false;
     for (auto& imu : valid_imu_data_) {
         if (side_ == "right") imu.dtheta.z() *= -1.0;
     }
