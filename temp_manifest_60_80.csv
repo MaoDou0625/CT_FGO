@@ -1,0 +1,6 @@
+run_name,config_path,result_path,truth_path,log_path,status,runtime_sec,return_code
+baseline,config/ob_gins_ct.yaml,D:/Code/dataset/WID/Datasets/transformedData2/output/ct_trajectory.txt,D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt,,DONE,,0
+output2,config/ob_gins_ct.yaml,D:/Code/dataset/WID/Datasets/transformedData2/output2/ct_trajectory.txt,D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt,,DONE,,0
+output3,config/ob_gins_ct.yaml,D:/Code/dataset/WID/Datasets/transformedData2/output3/ct_trajectory.txt,D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt,,DONE,,0
+output4,config/ob_gins_ct.yaml,D:/Code/dataset/WID/Datasets/transformedData2/output4/ct_trajectory.txt,D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt,,DONE,,0
+output_bottest,config/ob_gins_ct_bottest.yaml,D:/Code/dataset/WID/Datasets/transformedData2/output_bottest/ct_trajectory.txt,D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt,,DONE,,0

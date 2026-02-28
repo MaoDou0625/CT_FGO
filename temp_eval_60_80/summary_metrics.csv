@@ -1,0 +1,6 @@
+run_name,status,return_code,runtime_sec,termination,no_convergence_hits,pos_rmse_60_80_m,speed_rmse_60_80_mps,pos_rmse_global_w_m,speed_rmse_global_w_mps
+baseline,DONE,0,,NO_LOG,0,0.338093019,3.681733039,0.278004973,1.260237094
+output2,DONE,0,,NO_LOG,0,0.030290788,0.191573549,0.102246526,0.718593907
+output3,DONE,0,,NO_LOG,0,0.035058604,0.123388465,0.888019387,1.450353985
+output4,DONE,0,,NO_LOG,0,0.035106351,0.124142884,0.889595314,1.343060670
+output_bottest,DONE,0,,NO_LOG,0,0.035629985,0.122730006,0.211025007,0.456599176

@@ -1,0 +1,10 @@
+^C:\USERS\LIUZI\APPDATA\LOCAL\TEMP\VIBE-KANBAN\WORKTREES\7E92-60-80S\CT_FGO\BUILD_SCAN\CMAKEFILES\9A0B57E6D25911927734230C639C6D6C\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7e92-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7e92-60-80s/CT_FGO/build_scan --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7e92-60-80s/CT_FGO/build_scan/ob_gins.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
