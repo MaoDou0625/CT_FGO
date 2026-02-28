@@ -1,0 +1,10 @@
+^C:\USERS\LIUZI\APPDATA\LOCAL\TEMP\VIBE-KANBAN\WORKTREES\7CFC-60-80S\CT_FGO\SRC\THIRDPARTY\ABSEIL-CPP\ABSL\RANDOM\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg --check-stamp-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/random/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

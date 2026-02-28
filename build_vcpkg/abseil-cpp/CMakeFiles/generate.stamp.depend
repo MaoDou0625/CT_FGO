@@ -1,0 +1,23 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeDependentOption.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakePackageConfigHelpers.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeParseArguments.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CTest.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CTestTargets.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CTestUseLaunchers.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckCSourceCompiles.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckIncludeFile.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckLibraryExists.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/DartConfiguration.tcl.in
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindPackageMessage.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindThreads.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/GNUInstallDirs.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/WriteBasicConfigVersionFile.cmake
+C:/Program Files/CMake/share/cmake-4.2/Templates/CTestScript.cmake.in
+C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/CMake/AbseilDll.cmake
+C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/CMake/AbseilHelpers.cmake
+C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/CMakeLists.txt
+C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/copts/AbseilConfigureCopts.cmake
+C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/copts/GENERATED_AbseilCopts.cmake

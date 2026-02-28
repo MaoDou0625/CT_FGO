@@ -1,0 +1,28 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/base/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/algorithm/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/cleanup/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/container/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/debugging/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/flags/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/functional/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/hash/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/memory/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/meta/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/numeric/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/profiling/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/random/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/status/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/strings/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/synchronization/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/time/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/types/cmake_install.cmake",
+		"C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/utility/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

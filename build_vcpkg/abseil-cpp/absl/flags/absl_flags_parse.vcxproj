@@ -1,0 +1,512 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D8E8B1E9-AAF0-3940-A8C0-9116570DEF7E}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>absl_flags_parse</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="do_not_import_user.props" Condition="exists('do_not_import_user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">absl_flags_parse.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">absl_flags_parse</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">absl_flags_parse.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">absl_flags_parse</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">absl_flags_parse.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">absl_flags_parse</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">absl_flags_parse.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">absl_flags_parse</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4005;4068;4180;4244;4267;4503;4800</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4005;4068;4180;4244;4267;4503;4800</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4005;4068;4180;4244;4267;4503;4800</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4005;4068;4180;4244;4267;4503;4800</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_ENABLE_EXTENDED_ALIGNED_STORAGE;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO;C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp\absl\flags\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/flags/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg --check-stamp-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/flags/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/flags/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg --check-stamp-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/flags/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/flags/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg --check-stamp-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/flags/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp/absl/flags/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO -BC:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg --check-stamp-file C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp/absl/flags/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp\absl\flags\parse.cc" />
+    <ClInclude Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp\absl\flags\internal\parse.h" />
+    <ClInclude Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp\absl\flags\parse.h" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\ZERO_CHECK.vcxproj">
+      <Project>{7C109D4C-F2F0-33E0-A107-E06A01DAE357}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\types\absl_bad_optional_access.vcxproj">
+      <Project>{62036E61-D386-374C-88E1-C0179E5DF789}</Project>
+      <Name>absl_bad_optional_access</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\types\absl_bad_variant_access.vcxproj">
+      <Project>{750C7A21-E99C-3FB8-B8D7-D07AB7D0B027}</Project>
+      <Name>absl_bad_variant_access</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_base.vcxproj">
+      <Project>{868B9575-6F79-391F-AA2A-C421003D038B}</Project>
+      <Name>absl_base</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\hash\absl_city.vcxproj">
+      <Project>{E4602817-87CF-3B70-9AC8-DB4897ED05FC}</Project>
+      <Name>absl_city</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\time\absl_civil_time.vcxproj">
+      <Project>{201B48F3-1C9B-361D-92F0-915D039BF8DD}</Project>
+      <Name>absl_civil_time</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_cord.vcxproj">
+      <Project>{93106574-3EF8-38D4-B587-0DACE1075BCE}</Project>
+      <Name>absl_cord</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_cord_internal.vcxproj">
+      <Project>{63EE7228-90BB-3045-B182-81441BA88B01}</Project>
+      <Name>absl_cord_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_cordz_functions.vcxproj">
+      <Project>{40A3E218-4379-36BA-8C96-BCA6F7B0AA1B}</Project>
+      <Name>absl_cordz_functions</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_cordz_handle.vcxproj">
+      <Project>{DF689A21-3554-3DC8-8AAE-06F7407E67F2}</Project>
+      <Name>absl_cordz_handle</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_cordz_info.vcxproj">
+      <Project>{FD4D17E3-6BD0-3076-B893-5271558BC9C9}</Project>
+      <Name>absl_cordz_info</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\debugging\absl_debugging_internal.vcxproj">
+      <Project>{198AC58A-7E18-32F0-B84E-B33D2D606F66}</Project>
+      <Name>absl_debugging_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\debugging\absl_demangle_internal.vcxproj">
+      <Project>{9C7F3926-D9CB-341A-A14B-7BC25CC2BBDE}</Project>
+      <Name>absl_demangle_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\profiling\absl_exponential_biased.vcxproj">
+      <Project>{98F2ACC8-DA9F-3927-8CAB-13FDE76E92D7}</Project>
+      <Name>absl_exponential_biased</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags.vcxproj">
+      <Project>{DF2E1256-1B4D-369C-A43D-C53A191DB955}</Project>
+      <Name>absl_flags</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_commandlineflag.vcxproj">
+      <Project>{786E5D53-AEB0-39C0-8489-B68A0F5D3DD1}</Project>
+      <Name>absl_flags_commandlineflag</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_commandlineflag_internal.vcxproj">
+      <Project>{A8469894-D75D-3955-A12E-C7A1373F2951}</Project>
+      <Name>absl_flags_commandlineflag_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_config.vcxproj">
+      <Project>{2EA18C2B-469F-3FC7-BDC8-648750B8DCCD}</Project>
+      <Name>absl_flags_config</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_internal.vcxproj">
+      <Project>{991E6F7C-5BA0-3DAF-BE11-6125DF2575AC}</Project>
+      <Name>absl_flags_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_marshalling.vcxproj">
+      <Project>{23B6C999-82C3-3C93-BE6B-93936666186A}</Project>
+      <Name>absl_flags_marshalling</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_private_handle_accessor.vcxproj">
+      <Project>{F3BB49AE-DF18-3CB9-989C-9AD7C0459F26}</Project>
+      <Name>absl_flags_private_handle_accessor</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_program_name.vcxproj">
+      <Project>{C473C56F-FE2D-3BAF-906E-9BB5E2FCBBB2}</Project>
+      <Name>absl_flags_program_name</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_reflection.vcxproj">
+      <Project>{1E4B5606-A916-3EEF-AA1A-942825B8A56E}</Project>
+      <Name>absl_flags_reflection</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_usage.vcxproj">
+      <Project>{A9F2BB4D-A340-33A2-BAAF-62A4B818A2B5}</Project>
+      <Name>absl_flags_usage</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\flags\absl_flags_usage_internal.vcxproj">
+      <Project>{FF1D1F02-0372-3156-932A-25051CF34C39}</Project>
+      <Name>absl_flags_usage_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\synchronization\absl_graphcycles_internal.vcxproj">
+      <Project>{BDF07A43-2D18-3EBD-8D08-801F494A8271}</Project>
+      <Name>absl_graphcycles_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\hash\absl_hash.vcxproj">
+      <Project>{32D0E8E1-CD58-3F35-B430-05652125878E}</Project>
+      <Name>absl_hash</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\container\absl_hashtablez_sampler.vcxproj">
+      <Project>{21EE1B4B-6CCD-3857-BF3B-1C55903C34B7}</Project>
+      <Name>absl_hashtablez_sampler</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\numeric\absl_int128.vcxproj">
+      <Project>{319C1064-9085-3CF1-AB55-E6FFF0A0FE70}</Project>
+      <Name>absl_int128</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_log_severity.vcxproj">
+      <Project>{921689DA-4836-3A8F-B487-B2ADA902A4B9}</Project>
+      <Name>absl_log_severity</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\hash\absl_low_level_hash.vcxproj">
+      <Project>{B4256A0E-8A80-3C67-B97F-52DA7457B690}</Project>
+      <Name>absl_low_level_hash</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_malloc_internal.vcxproj">
+      <Project>{B031F2B3-1A4F-35CC-B4C9-7053588B7320}</Project>
+      <Name>absl_malloc_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\container\absl_raw_hash_set.vcxproj">
+      <Project>{78AFFBFB-A744-36EE-A446-A7C4840FDCA9}</Project>
+      <Name>absl_raw_hash_set</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_raw_logging_internal.vcxproj">
+      <Project>{603D349F-FD43-374D-8274-C0498445B566}</Project>
+      <Name>absl_raw_logging_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_spinlock_wait.vcxproj">
+      <Project>{D044680A-EF48-3F32-9CB0-DE8AF6FEAF87}</Project>
+      <Name>absl_spinlock_wait</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\debugging\absl_stacktrace.vcxproj">
+      <Project>{31A03573-05EA-31EE-9138-A9C1B906106C}</Project>
+      <Name>absl_stacktrace</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_str_format_internal.vcxproj">
+      <Project>{3E14C6A4-4264-3107-9A59-A458A78CD4E1}</Project>
+      <Name>absl_str_format_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_strings.vcxproj">
+      <Project>{010108D2-53E6-3C87-9348-88462198EF75}</Project>
+      <Name>absl_strings</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\strings\absl_strings_internal.vcxproj">
+      <Project>{47A250A8-E01C-32AB-AD6B-EFD89ADC4944}</Project>
+      <Name>absl_strings_internal</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\debugging\absl_symbolize.vcxproj">
+      <Project>{33EE7767-5A12-3811-9BCD-CC7B4A0B4D11}</Project>
+      <Name>absl_symbolize</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\synchronization\absl_synchronization.vcxproj">
+      <Project>{838BA2BA-286B-3168-AE7C-1EC64D2913D9}</Project>
+      <Name>absl_synchronization</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\base\absl_throw_delegate.vcxproj">
+      <Project>{59F51533-EE8A-3D2A-A63F-76C2A655F896}</Project>
+      <Name>absl_throw_delegate</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\time\absl_time.vcxproj">
+      <Project>{EE07BDBB-F9A2-3F92-B60E-43EC5AF89F90}</Project>
+      <Name>absl_time</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_vcpkg\abseil-cpp\absl\time\absl_time_zone.vcxproj">
+      <Project>{1BD93092-38F9-33DF-A298-E869588A3549}</Project>
+      <Name>absl_time_zone</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

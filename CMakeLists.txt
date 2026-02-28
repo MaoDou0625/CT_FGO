@@ -1,4 +1,25 @@
 cmake_minimum_required(VERSION 3.10)
+
+# Auto-enable vcpkg toolchain so first-time configure can resolve dependencies
+# (e.g., Sophus) without extra command-line flags.
+if (NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    if (DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE
+            "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            CACHE FILEPATH "Path to vcpkg toolchain file")
+        message(STATUS "Using vcpkg toolchain from VCPKG_ROOT: ${CMAKE_TOOLCHAIN_FILE}")
+    elseif (WIN32 AND EXISTS "D:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE
+            "D:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            CACHE FILEPATH "Path to vcpkg toolchain file")
+        message(STATUS "Using vcpkg toolchain from default path: ${CMAKE_TOOLCHAIN_FILE}")
+    endif ()
+endif ()
+
+if (WIN32 AND NOT DEFINED VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg target triplet")
+endif ()
+
 project(ob_gins)
 enable_testing()
 # 针对 Windows MSVC 编译器开启 /bigobj 支持

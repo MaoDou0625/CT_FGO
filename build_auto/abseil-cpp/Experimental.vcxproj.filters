@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_auto\CMakeFiles\1205722ba9b225144160507560ee88ed\Experimental.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\src\thirdparty\abseil-cpp\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\liuzi\AppData\Local\Temp\vibe-kanban\worktrees\7cfc-60-80s\CT_FGO\build_auto\abseil-cpp\CMakeFiles\Experimental" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{57D0EE8F-86CC-3F78-B7D9-79E53C9849BC}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
