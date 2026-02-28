@@ -1,0 +1,6 @@
+run_name,improve_60_80_pos_rmse_pct,max_non_target_pos_rmse_degrade_pct,speed_rmse_60_80_degrade_pct,pass_target,pass_non_target,pass_speed,pass_convergence,overall_pass
+baseline,0.000,0.000,0.000,False,True,True,True,False
+output2,91.041,-8.626,-94.797,True,True,True,True,True
+output3,89.630,3039.260,-96.649,True,False,True,True,False
+output4,89.616,3042.879,-96.628,True,False,True,True,False
+output_bottest,89.461,4.820,-96.667,True,True,True,True,True
