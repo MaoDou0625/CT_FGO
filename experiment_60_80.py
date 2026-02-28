@@ -225,6 +225,16 @@ def update_config_text(
     yaw_rear_weight: float,
     output_path: str,
 ) -> str:
+    def replace_numeric_keep_comment(src_line: str, key: str, value: float) -> str:
+        m = re.match(rf'^(\s*{re.escape(key)}\s*:\s*)([^#]*)(.*)$', src_line)
+        if not m:
+            return src_line
+        comment = m.group(3)
+        if comment:
+            # Ensure YAML comment starts with a separating space.
+            comment = " " + comment.lstrip()
+        return f"{m.group(1)}{value}{comment}"
+
     lines = text.splitlines()
     out = []
     current_block = ""
@@ -239,10 +249,10 @@ def update_config_text(
         if current_block not in front_names and current_block not in rear_names:
             yaw_value = yaw_front_weight
 
-        line = re.sub(r'^(\s*speed_weight\s*:\s*)([^#]*)(.*)$', rf'\g<1>{speed_weight}\3', line)
-        line = re.sub(r'^(\s*nhc_weight\s*:\s*)([^#]*)(.*)$', rf'\g<1>{nhc_weight}\3', line)
-        line = re.sub(r'^(\s*attitude_weight_roll\s*:\s*)([^#]*)(.*)$', rf'\g<1>{roll_weight}\3', line)
-        line = re.sub(r'^(\s*attitude_weight_yaw\s*:\s*)([^#]*)(.*)$', rf'\g<1>{yaw_value}\3', line)
+        line = replace_numeric_keep_comment(line, "speed_weight", speed_weight)
+        line = replace_numeric_keep_comment(line, "nhc_weight", nhc_weight)
+        line = replace_numeric_keep_comment(line, "attitude_weight_roll", roll_weight)
+        line = replace_numeric_keep_comment(line, "attitude_weight_yaw", yaw_value)
         line = re.sub(r'^(\s*outputpath\s*:\s*)(["\']).*(["\'])(\s*#.*)?$', rf'\g<1>"{output_path}"', line)
         out.append(line)
     return "\n".join(out) + "\n"
