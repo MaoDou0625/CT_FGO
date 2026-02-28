@@ -5,7 +5,7 @@
 
 # Configuration directories and files
 SourceDirectory: C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp
-BuildDirectory: C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp
+BuildDirectory: C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7e92-60-80s/CT_FGO/build_vcpkg/abseil-cpp
 
 # Where to place the cost data store
 CostDataFile: 

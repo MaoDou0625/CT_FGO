@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 4.2.1)
 
 # CTest Start Step
 set(CTEST_SOURCE_DIRECTORY "C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/src/thirdparty/abseil-cpp")
-set(CTEST_BINARY_DIRECTORY "C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7cfc-60-80s/CT_FGO/build_vcpkg/abseil-cpp")
+set(CTEST_BINARY_DIRECTORY "C:/Users/liuzi/AppData/Local/Temp/vibe-kanban/worktrees/7e92-60-80s/CT_FGO/build_vcpkg/abseil-cpp")
 
 # CTest Update Step
 set(CTEST_UPDATE_COMMAND "")
