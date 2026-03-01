@@ -25,6 +25,8 @@ class SegmentMetric:
     pos2d_max_t_s: float
     speed_rmse_mps: float
     speed_mae_mps: float
+    speed_max_abs_mps: float
+    speed_max_abs_t_s: float
 
 
 def parse_segments(text: str) -> List[Tuple[float, float]]:
@@ -121,8 +123,10 @@ def segment_metric(
     speed_r = np.sqrt(vn_r**2 + ve_r**2)
     speed_t = np.sqrt(vn_t**2 + ve_t**2)
     speed_err = speed_r - speed_t
+    speed_abs_err = np.abs(speed_err)
 
     max_idx = int(np.argmax(pos2d_err))
+    speed_max_idx = int(np.argmax(speed_abs_err))
     return SegmentMetric(
         segment=f"{int(t0)}-{int(t1)}",
         samples=int(t.size),
@@ -132,6 +136,8 @@ def segment_metric(
         pos2d_max_t_s=float(t[max_idx]),
         speed_rmse_mps=float(np.sqrt(np.mean(speed_err**2))),
         speed_mae_mps=float(np.mean(np.abs(speed_err))),
+        speed_max_abs_mps=float(speed_abs_err[speed_max_idx]),
+        speed_max_abs_t_s=float(t[speed_max_idx]),
     )
 
 
@@ -184,6 +190,8 @@ def save_segment_csv(path: Path, rows: List[SegmentMetric]) -> None:
                 "pos2d_max_t_s",
                 "speed_rmse_mps",
                 "speed_mae_mps",
+                "speed_max_abs_mps",
+                "speed_max_abs_t_s",
             ]
         )
         for r in rows:
@@ -197,6 +205,8 @@ def save_segment_csv(path: Path, rows: List[SegmentMetric]) -> None:
                     f"{r.pos2d_max_t_s:.6f}",
                     f"{r.speed_rmse_mps:.9f}",
                     f"{r.speed_mae_mps:.9f}",
+                    f"{r.speed_max_abs_mps:.9f}",
+                    f"{r.speed_max_abs_t_s:.6f}",
                 ]
             )
 
@@ -371,6 +381,8 @@ def cmd_evaluate(args):
             print(f"[SKIP] {run_name}: target segment {target_seg} missing.")
             continue
         target = metric_map[target_seg]
+        pos_max_global = max(metrics, key=lambda x: x.pos2d_max_m)
+        speed_max_global = max(metrics, key=lambda x: x.speed_max_abs_mps)
         summary_rows.append(
             {
                 "run_name": run_name,
@@ -381,8 +393,18 @@ def cmd_evaluate(args):
                 "no_convergence_hits": str(no_conv_hits),
                 "pos_rmse_60_80_m": f"{target.pos2d_rmse_m:.9f}",
                 "speed_rmse_60_80_mps": f"{target.speed_rmse_mps:.9f}",
+                "pos_max_60_80_m": f"{target.pos2d_max_m:.9f}",
+                "pos_max_60_80_t_s": f"{target.pos2d_max_t_s:.6f}",
+                "speed_max_60_80_abs_mps": f"{target.speed_max_abs_mps:.9f}",
+                "speed_max_60_80_t_s": f"{target.speed_max_abs_t_s:.6f}",
                 "pos_rmse_global_w_m": f"{weighted_avg(pos_vals, samples):.9f}",
                 "speed_rmse_global_w_mps": f"{weighted_avg(speed_vals, samples):.9f}",
+                "pos_max_global_m": f"{pos_max_global.pos2d_max_m:.9f}",
+                "pos_max_global_segment": pos_max_global.segment,
+                "pos_max_global_t_s": f"{pos_max_global.pos2d_max_t_s:.6f}",
+                "speed_max_global_abs_mps": f"{speed_max_global.speed_max_abs_mps:.9f}",
+                "speed_max_global_segment": speed_max_global.segment,
+                "speed_max_global_t_s": f"{speed_max_global.speed_max_abs_t_s:.6f}",
             }
         )
 
@@ -448,7 +470,10 @@ def cmd_evaluate(args):
         g = next(x for x in gate_rows if x["run_name"] == s["run_name"])
         report_lines.append(
             f"- `{s['run_name']}` | pos60-80={float(s['pos_rmse_60_80_m']):.4f}m | "
-            f"speed60-80={float(s['speed_rmse_60_80_mps']):.4f}m/s | term={s['termination']} | pass={g['overall_pass']}"
+            f"speed60-80={float(s['speed_rmse_60_80_mps']):.4f}m/s | "
+            f"posMax60-80={float(s['pos_max_60_80_m']):.4f}m@{float(s['pos_max_60_80_t_s']):.2f}s | "
+            f"speedMax60-80={float(s['speed_max_60_80_abs_mps']):.4f}m/s@{float(s['speed_max_60_80_t_s']):.2f}s | "
+            f"term={s['termination']} | pass={g['overall_pass']}"
         )
     (out_dir / "report.md").write_text("\n".join(report_lines) + "\n", encoding="utf-8")
     print(f"Saved: {summary_csv}")
