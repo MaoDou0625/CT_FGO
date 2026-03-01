@@ -1,0 +1,125 @@
+# Scheme A: CT_FGO (GNSS + Main IMU + All Wheel IMUs)
+
+gnssfile: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+outputpath: "D:/Code/dataset/WID/Datasets/transformedData2/output_schemeA_main_allwheel_20260228"
+save_multi_imu: true
+
+imu_main:
+  type: "standard"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Body_IMU.txt"
+  columns: 7
+  rate_hz: 120
+  antlever: [0.0, 0.0, 0.0]
+  imunoise:
+    accel_noise: 25
+    gyro_noise: 0.004
+    accel_bias_rw: 5
+    gyro_bias_rw: 1
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+center_imu1:
+  type: "wheel"
+  side: "left"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU1.txt"
+  columns: 9
+  rate_hz: 120
+  antlever: [2.32, 0.7180, 1.4]
+  odolever: [0.0, 0.0, 0.0]
+  extrinsic_rotation: [0.0, 0.0, 0.0]
+  wheel_radius: 0.3
+  speed_weight: 10.0
+  nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 1.0
+  imunoise:
+    accel_noise: 120
+    gyro_noise: 0.007
+    accel_bias_rw: 20
+    gyro_bias_rw: 10
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+center_imu2:
+  type: "wheel"
+  side: "left"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU2.txt"
+  columns: 9
+  rate_hz: 120
+  antlever: [-0.29, 0.718, 1.4]
+  odolever: [0.0, 0.0, 0.0]
+  extrinsic_rotation: [0.0, 0.0, 0.0]
+  wheel_radius: 0.3
+  speed_weight: 10.0
+  nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 100.0
+  imunoise:
+    accel_noise: 120
+    gyro_noise: 0.007
+    accel_bias_rw: 20
+    gyro_bias_rw: 10
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+center_imu3:
+  type: "wheel"
+  side: "right"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU3.txt"
+  columns: 9
+  rate_hz: 120
+  antlever: [2.32, -0.7180, 1.4]
+  odolever: [0.0, 0.0, 0.0]
+  extrinsic_rotation: [0.0, 0.0, 0.0]
+  wheel_radius: 0.3
+  speed_weight: 10.0
+  nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 1.0
+  imunoise:
+    accel_noise: 120
+    gyro_noise: 0.007
+    accel_bias_rw: 20
+    gyro_bias_rw: 10
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+center_imu4:
+  type: "wheel"
+  side: "right"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Center_IMU4.txt"
+  columns: 9
+  rate_hz: 120
+  antlever: [-0.29, -0.750, 1.4]
+  odolever: [0.0, 0.0, 0.0]
+  extrinsic_rotation: [0.0, 0.0, 0.0]
+  wheel_radius: 0.3
+  speed_weight: 10.0
+  nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 100.0
+  imunoise:
+    accel_noise: 120
+    gyro_noise: 0.007
+    accel_bias_rw: 20
+    gyro_bias_rw: 10
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+windows: 50
+starttime: 1
+endtime: 90
+aligntime: 3
+kf_interval_sec: 0.1
+num_iterations: 20
+isearth: true
+
+debug:
+  enable: true
+  level: 1
+
+comparison:
+  enable: true
+  python_script: "./plot_ct_results.py"
+  truth_file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+  label: "schemeA_ct_main_allwheel"
