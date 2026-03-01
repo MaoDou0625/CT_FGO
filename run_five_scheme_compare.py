@@ -1,5 +1,6 @@
 import argparse
 import csv
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -154,6 +155,143 @@ def render_charts(summary_rows: List[dict], out_dir: Path) -> None:
     plt.close(fig)
 
 
+def latlonalt_to_enu(lat_deg: np.ndarray, lon_deg: np.ndarray, alt_m: np.ndarray, lat0_deg: float, lon0_deg: float, alt0_m: float):
+    r_earth = 6378137.0
+    dlat = np.deg2rad(lat_deg - lat0_deg)
+    dlon = np.deg2rad(lon_deg - lon0_deg)
+    north = dlat * r_earth
+    east = dlon * r_earth * np.cos(np.deg2rad(lat0_deg))
+    up = alt_m - alt0_m
+    return east, north, up
+
+
+def safe_name(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
+
+
+def render_detailed_trajectory_plots(manifest_rows: List[dict], truth_path: Path, out_dir: Path) -> None:
+    truth = load_table(truth_path)
+    if truth.shape[1] < 4:
+        raise ValueError(f"Truth format unexpected: {truth_path}")
+
+    t_truth = truth[:, 0]
+    lat_truth = truth[:, 1]
+    lon_truth = truth[:, 2]
+    alt_truth = truth[:, 3]
+
+    lat0 = float(lat_truth[0])
+    lon0 = float(lon_truth[0])
+    alt0 = float(alt_truth[0])
+    truth_e_all, truth_n_all, truth_u_all = latlonalt_to_enu(lat_truth, lon_truth, alt_truth, lat0, lon0, alt0)
+
+    detailed_dir = out_dir / "detailed_plots"
+    per_scheme_dir = detailed_dir / "per_scheme"
+    detailed_dir.mkdir(parents=True, exist_ok=True)
+    per_scheme_dir.mkdir(parents=True, exist_ok=True)
+
+    fig_2d_all, ax_2d_all = plt.subplots(figsize=(8, 6))
+    ax_2d_all.plot(truth_e_all, truth_n_all, "k-", linewidth=2.0, label="truth")
+    ax_2d_all.set_title("All Schemes 2D Trajectory vs Truth")
+    ax_2d_all.set_xlabel("East (m)")
+    ax_2d_all.set_ylabel("North (m)")
+    ax_2d_all.grid(True, alpha=0.3)
+
+    fig_enu_all, axs_enu_all = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    t_truth_rel = t_truth - t_truth[0]
+    axs_enu_all[0].plot(t_truth_rel, truth_e_all, "k-", linewidth=2.0, label="truth")
+    axs_enu_all[1].plot(t_truth_rel, truth_n_all, "k-", linewidth=2.0, label="truth")
+    axs_enu_all[2].plot(t_truth_rel, truth_u_all, "k-", linewidth=2.0, label="truth")
+    axs_enu_all[0].set_ylabel("E (m)")
+    axs_enu_all[1].set_ylabel("N (m)")
+    axs_enu_all[2].set_ylabel("U (m)")
+    axs_enu_all[2].set_xlabel("Time (s)")
+    axs_enu_all[0].set_title("All Schemes ENU Displacement vs Truth")
+    for ax in axs_enu_all:
+        ax.grid(True, alpha=0.3)
+
+    for row in manifest_rows:
+        run_name = row["run_name"]
+        result_path = Path(row["result_path"])
+        if not result_path.exists():
+            continue
+        res = load_table(result_path)
+        if res.shape[1] < 4:
+            continue
+
+        t_res = res[:, 0]
+        lat_res = res[:, 1]
+        lon_res = res[:, 2]
+        alt_res = res[:, 3]
+
+        valid = (t_res >= t_truth[0]) & (t_res <= t_truth[-1])
+        if valid.sum() < 2:
+            continue
+
+        t = t_res[valid]
+        lat_r = lat_res[valid]
+        lon_r = lon_res[valid]
+        alt_r = alt_res[valid]
+
+        lat_t = np.interp(t, t_truth, lat_truth)
+        lon_t = np.interp(t, t_truth, lon_truth)
+        alt_t = np.interp(t, t_truth, alt_truth)
+
+        lat_ref = float(lat_t[0])
+        lon_ref = float(lon_t[0])
+        alt_ref = float(alt_t[0])
+        e_r, n_r, u_r = latlonalt_to_enu(lat_r, lon_r, alt_r, lat_ref, lon_ref, alt_ref)
+        e_t, n_t, u_t = latlonalt_to_enu(lat_t, lon_t, alt_t, lat_ref, lon_ref, alt_ref)
+        t_rel = t - t[0]
+
+        fig2d, ax2d = plt.subplots(figsize=(8, 6))
+        ax2d.plot(e_t, n_t, "k-", linewidth=2.0, label="truth")
+        ax2d.plot(e_r, n_r, "-", linewidth=1.5, label=run_name)
+        ax2d.set_title(f"2D Trajectory vs Truth: {run_name}")
+        ax2d.set_xlabel("East (m)")
+        ax2d.set_ylabel("North (m)")
+        ax2d.grid(True, alpha=0.3)
+        ax2d.legend()
+        fig2d.tight_layout()
+        fig2d.savefig(per_scheme_dir / f"{safe_name(run_name)}_2d_vs_truth.png", dpi=150)
+        plt.close(fig2d)
+
+        figenu, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+        axs[0].plot(t_rel, e_t, "k-", linewidth=2.0, label="truth")
+        axs[0].plot(t_rel, e_r, "-", linewidth=1.4, label=run_name)
+        axs[1].plot(t_rel, n_t, "k-", linewidth=2.0, label="truth")
+        axs[1].plot(t_rel, n_r, "-", linewidth=1.4, label=run_name)
+        axs[2].plot(t_rel, u_t, "k-", linewidth=2.0, label="truth")
+        axs[2].plot(t_rel, u_r, "-", linewidth=1.4, label=run_name)
+        axs[0].set_ylabel("E (m)")
+        axs[1].set_ylabel("N (m)")
+        axs[2].set_ylabel("U (m)")
+        axs[2].set_xlabel("Time (s)")
+        axs[0].set_title(f"ENU Displacement vs Truth: {run_name}")
+        for ax in axs:
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+        figenu.tight_layout()
+        figenu.savefig(per_scheme_dir / f"{safe_name(run_name)}_enu_vs_truth.png", dpi=150)
+        plt.close(figenu)
+
+        e_r_all, n_r_all, u_r_all = latlonalt_to_enu(lat_res, lon_res, alt_res, lat0, lon0, alt0)
+        ax_2d_all.plot(e_r_all, n_r_all, linewidth=1.2, label=run_name)
+        t_rel_all = t_res - t_truth[0]
+        axs_enu_all[0].plot(t_rel_all, e_r_all, linewidth=1.0, label=run_name)
+        axs_enu_all[1].plot(t_rel_all, n_r_all, linewidth=1.0, label=run_name)
+        axs_enu_all[2].plot(t_rel_all, u_r_all, linewidth=1.0, label=run_name)
+
+    ax_2d_all.legend()
+    fig_2d_all.tight_layout()
+    fig_2d_all.savefig(detailed_dir / "all_schemes_2d_vs_truth.png", dpi=150)
+    plt.close(fig_2d_all)
+
+    axs_enu_all[0].legend()
+    fig_enu_all.tight_layout()
+    fig_enu_all.savefig(detailed_dir / "all_schemes_enu_vs_truth.png", dpi=150)
+    plt.close(fig_enu_all)
+
+
 def write_final_report(
     out_dir: Path,
     manifest_path: Path,
@@ -189,6 +327,10 @@ def write_final_report(
             "## Files",
             "- `summary_metrics.csv`, `gate_results.csv`, `report.md` from unified evaluator",
             "- `compare_60_80.png`, `compare_global_weighted.png`",
+            "- `detailed_plots/all_schemes_2d_vs_truth.png`",
+            "- `detailed_plots/all_schemes_enu_vs_truth.png`",
+            "- `detailed_plots/per_scheme/*_2d_vs_truth.png`",
+            "- `detailed_plots/per_scheme/*_enu_vs_truth.png`",
             "",
             "## Notes",
             "- Unified segments: `0-20,20-40,40-60,60-80,80-90`",
@@ -268,6 +410,14 @@ def main() -> None:
     manifest_path = args.out_dir / "manifest_5schemes.csv"
     write_manifest(manifest_path, schemes)
     run_unified_evaluate(manifest_path, args.out_dir, "schemeA_ct_main_allwheel", args.segments)
+    render_detailed_trajectory_plots(
+        [
+            {"run_name": s.run_name, "result_path": str(s.result_path)}
+            for s in schemes
+        ],
+        args.truth_path,
+        args.out_dir,
+    )
 
     summary_rows = read_csv(args.out_dir / "summary_metrics.csv")
     gate_rows = read_csv(args.out_dir / "gate_results.csv")
