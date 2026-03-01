@@ -1,0 +1,6 @@
+run_name,status,return_code,runtime_sec,termination,no_convergence_hits,pos_rmse_60_80_m,speed_rmse_60_80_mps,pos_rmse_global_w_m,speed_rmse_global_w_mps
+schemeA_ct_main_allwheel,DONE,0,,NO_LOG,0,0.035629985,0.122730006,0.211025007,0.456599176
+schemeB_ct_main_rear_right,DONE,0,,NO_LOG,0,0.035593809,0.121703792,0.211537576,0.461572663
+schemeC_ct_main_front_left,DONE,0,,NO_LOG,0,0.035580391,0.122812563,0.210908652,0.470546383
+schemeD_kf_gins_main_imu,DONE,0,,NO_LOG,0,1.263856046,1.464556902,1.781055629,2.691388148
+schemeE_wheel_gins_main_rear,DONE,0,,NO_LOG,0,0.802000084,0.726839080,2.805223111,2.221983639

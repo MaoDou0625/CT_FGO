@@ -1,0 +1,37 @@
+# Scheme F: CT_FGO (GNSS + Main IMU only)
+
+gnssfile: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+outputpath: "D:/Code/dataset/WID/Datasets/transformedData2/output_schemeF_main_only_20260301"
+save_multi_imu: true
+
+imu_main:
+  type: "standard"
+  file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/Body_IMU.txt"
+  columns: 7
+  rate_hz: 120
+  antlever: [0.0, 0.0, 0.0]
+  imunoise:
+    accel_noise: 25
+    gyro_noise: 0.004
+    accel_bias_rw: 5
+    gyro_bias_rw: 1
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+windows: 50
+starttime: 1
+endtime: 999999
+aligntime: 3
+kf_interval_sec: 0.1
+num_iterations: 20
+isearth: true
+
+debug:
+  enable: true
+  level: 1
+
+comparison:
+  enable: true
+  python_script: "./plot_ct_results.py"
+  truth_file: "D:/Code/dataset/WID/Datasets/transformedData2/four_wheel_dataset_PassengerCar/trial01/GNSS_use.txt"
+  label: "schemeF_ct_main_only"

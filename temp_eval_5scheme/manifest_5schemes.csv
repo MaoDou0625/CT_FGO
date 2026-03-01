@@ -1,0 +1,6 @@
+run_name,config_path,result_path,truth_path,log_path,status,runtime_sec,return_code
+schemeA_ct_main_allwheel,,D:\Code\dataset\WID\Datasets\transformedData2\output_schemeA_main_allwheel_20260228\ct_trajectory.txt,D:\Code\dataset\WID\Datasets\transformedData2\four_wheel_dataset_PassengerCar\trial01\GNSS_use.txt,,DONE,,0
+schemeB_ct_main_rear_right,,D:\Code\dataset\WID\Datasets\transformedData2\output_subtask3_schemeB_main_plus_rear_right\ct_trajectory.txt,D:\Code\dataset\WID\Datasets\transformedData2\four_wheel_dataset_PassengerCar\trial01\GNSS_use.txt,,DONE,,0
+schemeC_ct_main_front_left,,D:\Code\dataset\WID\Datasets\transformedData2\output_scheme_c_front_left_20260228\ct_trajectory.txt,D:\Code\dataset\WID\Datasets\transformedData2\four_wheel_dataset_PassengerCar\trial01\GNSS_use.txt,,DONE,,0
+schemeD_kf_gins_main_imu,,D:\Code\dataset\WID\Datasets\transformedData2\transformedforKF_GINS_schemeD_trial01\ct_trajectory.txt,D:\Code\dataset\WID\Datasets\transformedData2\four_wheel_dataset_PassengerCar\trial01\GNSS_use.txt,,DONE,,0
+schemeE_wheel_gins_main_rear,,D:\Code\dataset\WID\Datasets\transformedData2\transformedforWheel_GINS_schemeE_trial01\ct_trajectory.txt,D:\Code\dataset\WID\Datasets\transformedData2\four_wheel_dataset_PassengerCar\trial01\GNSS_use.txt,,DONE,,0
