@@ -38,7 +38,7 @@ struct WheelGyroFactor {
         Eigen::Map<const QuatT> q_bs(q_body_imu_ptr); // Body-to-Sensor
 
         T t_val = T(t_);
-        T t_start = T(t0_) + T(dt_);
+        T t_start = T(t0_);
         T u = (t_val - t_start) / T(dt_);
 
         ResT res = spline::BSplineEvaluator::Evaluate<T>(u, T(dt_), T0, T1, T2, T3);

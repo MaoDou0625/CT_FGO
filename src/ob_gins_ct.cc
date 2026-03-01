@@ -249,7 +249,9 @@ int main(int argc, char** argv) {
             LOG_EVERY_N(INFO, 100) << "Not stationary at t=" << gnss.time << " (wheel_imu_count=" << wheel_imu_count << ", max_speed=" << max_wheel_speed << ")";
         }
 
-        auto* factor = ContinuousGnssFactor::Create(gnss.time, spline_dt, t_start_global, gnss.blh, current_gnss_sqrt_info);
+        // Keep spline local-time parameterization consistent with other factors.
+        auto* factor = ContinuousGnssFactor::Create(
+            gnss.time, spline_dt, control_points[k].timestamp(), gnss.blh, current_gnss_sqrt_info);
         problem.AddResidualBlock(factor, nullptr, 
             control_points[k].pose_data(), control_points[k+1].pose_data(), 
             control_points[k+2].pose_data(), control_points[k+3].pose_data(),
@@ -283,7 +285,8 @@ int main(int argc, char** argv) {
         int k = findControlPointIndex(t, t_start_global, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
-        double u = (t - (t_start_global + k * spline_dt)) / spline_dt;
+        // Keep local parameterization consistent with all factors: u = (t - t0) / dt.
+        double u = (t - control_points[k].timestamp()) / spline_dt;
         auto res = BSplineEvaluator::Evaluate<double>(u, spline_dt, 
             control_points[k].pose(), control_points[k+1].pose(), 
             control_points[k+2].pose(), control_points[k+3].pose());

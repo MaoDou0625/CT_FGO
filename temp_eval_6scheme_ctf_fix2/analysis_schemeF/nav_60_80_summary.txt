@@ -1,0 +1,7 @@
+Window: 60.000 - 80.000 s
+Samples: 200
+2D Pos RMSE: 0.104166 m
+2D Pos MAE:  0.085529 m
+2D Pos Max:  0.348669 m @ t=60.008293 s
+Speed RMSE:  0.133305 m/s
+Speed MAE:   0.083749 m/s

@@ -16,7 +16,19 @@
 namespace ob_gins {
 
 int findControlPointIndex(double t, double t0, double dt, int max_idx) {
-    return static_cast<int>(std::floor((t - dt - t0) / dt));
+    if (dt <= 0.0 || max_idx < 4) {
+        return -1;
+    }
+    // Standard knot interval index: [t0 + k*dt, t0 + (k+1)*dt).
+    // Add a tiny epsilon to reduce boundary jitter from floating-point rounding.
+    int k = static_cast<int>(std::floor((t - t0) / dt + 1e-9));
+    if (k < 0) {
+        return -1;
+    }
+    if (k > max_idx - 4) {
+        k = max_idx - 4;
+    }
+    return k;
 }
 
 // ---------------------- Factory Implementation ----------------------

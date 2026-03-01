@@ -34,7 +34,7 @@ struct ContinuousGnssFactor {
 
         // 2. Evaluate Spline
         T t_val = T(t_);
-        T t_start = T(t0_) + T(dt_); // Valid range [t1, t2)
+        T t_start = T(t0_);
         T u = (t_val - t_start) / T(dt_);
 
         // Evaluate B-Spline at t_meas_ to get P_wb (IMU Pos) and R_wb (IMU Rot)

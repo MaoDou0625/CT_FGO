@@ -1,0 +1,7 @@
+run_name,improve_60_80_pos_rmse_pct,max_non_target_pos_rmse_degrade_pct,speed_rmse_60_80_degrade_pct,pass_target,pass_non_target,pass_speed,pass_convergence,overall_pass
+schemeA_ct_main_allwheel,0.000,0.000,0.000,False,True,True,True,False
+schemeB_ct_main_rear_right,0.209,-0.000,-0.122,False,True,True,True,False
+schemeC_ct_main_front_left,-0.034,31.167,0.263,False,False,True,True,False
+schemeF_ct_main_only,-190.603,-23.675,8.567,False,True,False,True,False
+schemeD_kf_gins_main_imu,-3425.920,682.518,1092.772,False,False,False,True,False
+schemeE_wheel_gins_main_rear,-2353.491,1097.684,259.140,False,False,False,True,False
