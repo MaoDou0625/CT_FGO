@@ -1,4 +1,5 @@
 build/
+build_*/
 bin/
 .vscode/
 *.png
