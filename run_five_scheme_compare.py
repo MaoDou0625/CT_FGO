@@ -139,7 +139,7 @@ def render_charts(summary_rows: List[dict], out_dir: Path) -> None:
     ax.bar(x + width / 2, speed_60_80, width, label="Speed2D_RMSE_60_80 (m/s)")
     ax.set_xticks(x)
     ax.set_xticklabels(names, rotation=15)
-    ax.set_title("Five-Scheme 60-80 Segment Comparison")
+    ax.set_title("Multi-Scheme 60-80 Segment Comparison")
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_dir / "compare_60_80.png", dpi=150)
@@ -148,7 +148,7 @@ def render_charts(summary_rows: List[dict], out_dir: Path) -> None:
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(names, pos_global, marker="o", label="Pos2D_RMSE_GlobalWeighted (m)")
     ax.plot(names, speed_global, marker="s", label="Speed2D_RMSE_GlobalWeighted (m/s)")
-    ax.set_title("Five-Scheme Global Weighted Metrics")
+    ax.set_title("Multi-Scheme Global Weighted Metrics")
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_dir / "compare_global_weighted.png", dpi=150)
@@ -302,7 +302,7 @@ def write_final_report(
 ) -> None:
     gate_map = {r["run_name"]: r for r in gate_rows}
     lines = [
-        "# Five-Scheme Unified Comparison Report",
+        "# Multi-Scheme Unified Comparison Report",
         "",
         "## Inputs",
         f"- Manifest: `{manifest_path}`",
@@ -343,7 +343,7 @@ def write_final_report(
 def write_command_list(out_dir: Path, manifest_path: Path) -> None:
     txt = f"""# Commands For Reproduction
 
-## 1) Build and run unified five-scheme comparison
+## 1) Build and run unified multi-scheme comparison
 python run_five_scheme_compare.py --out-dir "{out_dir}"
 
 ## 2) Re-run unified evaluate only
@@ -353,7 +353,7 @@ python experiment_60_80.py evaluate --manifest "{manifest_path}" --out-dir "{out
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Unified five-scheme comparison for CT_FGO vs KF-GINS vs Wheel-GINS.")
+    p = argparse.ArgumentParser(description="Unified multi-scheme comparison for CT_FGO vs KF-GINS vs Wheel-GINS.")
     p.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
     p.add_argument("--truth-path", type=Path, default=DEFAULT_TRUTH)
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
@@ -373,6 +373,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--scheme-c-ct",
         type=Path,
         default=DEFAULT_DATA_ROOT / "output_scheme_c_front_left_20260228" / "ct_trajectory.txt",
+    )
+    p.add_argument(
+        "--scheme-f-ct",
+        type=Path,
+        default=DEFAULT_DATA_ROOT / "output_schemeF_main_only_20260301" / "ct_trajectory.txt",
     )
     p.add_argument(
         "--scheme-d-kf-nav",
@@ -403,11 +408,12 @@ def main() -> None:
         Scheme("schemeA_ct_main_allwheel", args.scheme_a_ct, args.truth_path),
         Scheme("schemeB_ct_main_rear_right", args.scheme_b_ct, args.truth_path),
         Scheme("schemeC_ct_main_front_left", args.scheme_c_ct, args.truth_path),
+        Scheme("schemeF_ct_main_only", args.scheme_f_ct, args.truth_path),
         Scheme("schemeD_kf_gins_main_imu", kf_converted, args.truth_path),
         Scheme("schemeE_wheel_gins_main_rear", wheel_converted, args.truth_path),
     ]
 
-    manifest_path = args.out_dir / "manifest_5schemes.csv"
+    manifest_path = args.out_dir / "manifest_multischemes.csv"
     write_manifest(manifest_path, schemes)
     run_unified_evaluate(manifest_path, args.out_dir, "schemeA_ct_main_allwheel", args.segments)
     render_detailed_trajectory_plots(

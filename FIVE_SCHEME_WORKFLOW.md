@@ -1,11 +1,12 @@
-# Five-Scheme Unified Workflow (trial01)
+# Multi-Scheme Unified Workflow (trial01)
 
-## 1. Run CT_FGO schemes (A/B/C)
+## 1. Run CT_FGO schemes (A/B/C/F)
 
 ```powershell
 .\bin\Release\ob_gins_ct.exe config\ob_gins_ct_schemeA_main_allwheel.yaml
 .\bin\Release\ob_gins_ct.exe config\ob_gins_ct_schemeB_main_rear_right.yaml
 .\bin\Release\ob_gins_ct.exe config\ob_gins_ct_schemeC_main_front_left.yaml
+.\bin\Release\ob_gins_ct.exe config\ob_gins_ct_schemeF_main_only.yaml
 ```
 
 ## 2. Run KF-GINS scheme (D)
@@ -27,7 +28,7 @@ python run_five_scheme_compare.py --out-dir D:\Code\dataset\WID\Datasets\transfo
 ```
 
 Outputs:
-- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\manifest_5schemes.csv`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\manifest_multischemes.csv`
 - `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\summary_metrics.csv`
 - `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\gate_results.csv`
 - `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\compare_60_80.png`

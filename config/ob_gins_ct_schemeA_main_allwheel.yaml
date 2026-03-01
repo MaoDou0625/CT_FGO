@@ -108,7 +108,7 @@ center_imu4:
 
 windows: 50
 starttime: 1
-endtime: 90
+endtime: 999999
 aligntime: 3
 kf_interval_sec: 0.1
 num_iterations: 20
