@@ -37,10 +37,14 @@ T_summary  = readtable(summary_path, 'TextType', 'string');
 T_gate     = readtable(gate_path, 'TextType', 'string'); %#ok<NASGU>
 
 % Ensure numeric columns are numeric
-num_cols = ["pos_rmse_60_80_m","speed_rmse_60_80_mps","pos_rmse_global_w_m","speed_rmse_global_w_mps"];
+num_cols = [ ...
+    "pos_rmse_60_80_m","speed_rmse_60_80_mps","pos_rmse_global_w_m","speed_rmse_global_w_mps", ...
+    "pos_max_60_80_m","speed_max_60_80_abs_mps","pos_max_global_m","speed_max_global_abs_mps", ...
+    "pos_max_60_80_t_s","speed_max_60_80_t_s","pos_max_global_t_s","speed_max_global_t_s" ...
+];
 for i = 1:numel(num_cols)
     c = num_cols(i);
-    if ~isnumeric(T_summary.(c))
+    if ismember(c, string(T_summary.Properties.VariableNames)) && ~isnumeric(T_summary.(c))
         T_summary.(c) = str2double(T_summary.(c));
     end
 end
@@ -61,6 +65,7 @@ scheme_names_cn = containers.Map( ...
 trials = unique(T_summary.trial, 'stable');
 
 plot_summary_grouped_bars(T_summary, scheme_order, scheme_names_en, scheme_names_cn, out_dir);
+plot_max_error_figures(T_summary, trials, scheme_order, scheme_names_en, out_dir);
 plot_summary_boxplots(T_summary, scheme_order, scheme_names_en, scheme_names_cn, out_dir);
 plot_trial_scheme_heatmaps(T_summary, trials, scheme_order, scheme_names_en, out_dir);
 plot_all_trial_trajectories(T_manifest, trials, scheme_order, scheme_names_en, out_dir);
@@ -94,6 +99,100 @@ for i = 1:n
         scheme_key(i) = "UNK";
     end
 end
+end
+
+
+function plot_max_error_figures(T, trials, scheme_order, map_en, out_dir)
+% Fallback for old summary files without max columns.
+required = ["pos_max_60_80_m","speed_max_60_80_abs_mps","pos_max_global_m","speed_max_global_abs_mps"];
+if ~all(ismember(required, string(T.Properties.VariableNames)))
+    warning('summary_metrics.csv has no max-error columns, skip max-error figures.');
+    return;
+end
+
+nS = numel(scheme_order);
+x = 1:nS;
+w = 0.38;
+labels = strings(1, nS);
+for i = 1:nS
+    labels(i) = map_en(char(scheme_order(i)));
+end
+
+pos60 = nan(1,nS); spd60 = nan(1,nS); posG = nan(1,nS); spdG = nan(1,nS);
+for i = 1:nS
+    I = T.scheme_key == scheme_order(i);
+    pos60(i) = mean(T.pos_max_60_80_m(I), 'omitnan');
+    spd60(i) = mean(T.speed_max_60_80_abs_mps(I), 'omitnan');
+    posG(i)  = mean(T.pos_max_global_m(I), 'omitnan');
+    spdG(i)  = mean(T.speed_max_global_abs_mps(I), 'omitnan');
+end
+
+% Max error bars on 60-80
+f = make_fig_cm(14, 8);
+ax = axes(f);
+hold(ax, 'on');
+b1 = bar(ax, x - w/2, pos60, w, 'FaceColor', [0.60 0.20 0.20]);
+b2 = bar(ax, x + w/2, spd60, w, 'FaceColor', [0.25 0.45 0.70]);
+set(ax, 'XTick', x, 'XTickLabel', labels);
+xtickangle(ax, 20);
+ylabel(ax, 'Max Error');
+legend(ax, [b1 b2], {'Pos Max 60-80 (m)', 'Speed Max|err| 60-80 (m/s)'}, 'Location', 'northwest');
+title(ax, '\fontname{仿宋}最大误差均值（60-80s）\fontname{Times New Roman}  Mean Max Error');
+apply_axis_style(ax);
+save_fig_pair(f, out_dir, 'summary_max_60_80_mean');
+
+% Global max error bars
+f = make_fig_cm(14, 8);
+ax = axes(f);
+hold(ax, 'on');
+b1 = bar(ax, x - w/2, posG, w, 'FaceColor', [0.60 0.20 0.20]);
+b2 = bar(ax, x + w/2, spdG, w, 'FaceColor', [0.25 0.45 0.70]);
+set(ax, 'XTick', x, 'XTickLabel', labels);
+xtickangle(ax, 20);
+ylabel(ax, 'Max Error');
+legend(ax, [b1 b2], {'Pos Max Global (m)', 'Speed Max|err| Global (m/s)'}, 'Location', 'northwest');
+title(ax, '\fontname{仿宋}最大误差均值（全局）\fontname{Times New Roman}  Mean Global Max Error');
+apply_axis_style(ax);
+save_fig_pair(f, out_dir, 'summary_max_global_mean');
+
+% Heatmaps: trial x scheme for max error
+nT = numel(trials);
+M_pos60 = nan(nT, nS);
+M_spd60 = nan(nT, nS);
+for i = 1:nT
+    for j = 1:nS
+        I = T.trial == trials(i) & T.scheme_key == scheme_order(j);
+        if any(I)
+            r = find(I,1,'first');
+            M_pos60(i,j) = T.pos_max_60_80_m(r);
+            M_spd60(i,j) = T.speed_max_60_80_abs_mps(r);
+        end
+    end
+end
+
+f = make_fig_cm(14, 9);
+ax = axes(f);
+imagesc(ax, M_pos60);
+colormap(ax, hot(256));
+cb = colorbar(ax);
+cb.Label.String = 'Pos Max 60-80 (m)';
+set(ax, 'XTick', 1:nS, 'XTickLabel', labels, 'YTick', 1:nT, 'YTickLabel', trials);
+xtickangle(ax, 20);
+title(ax, '\fontname{仿宋}位置最大误差热力图（60-80s）\fontname{Times New Roman}');
+apply_axis_style(ax);
+save_fig_pair(f, out_dir, 'heatmap_posmax60_trial_scheme');
+
+f = make_fig_cm(14, 9);
+ax = axes(f);
+imagesc(ax, M_spd60);
+colormap(ax, cool(256));
+cb = colorbar(ax);
+cb.Label.String = 'Speed Max|err| 60-80 (m/s)';
+set(ax, 'XTick', 1:nS, 'XTickLabel', labels, 'YTick', 1:nT, 'YTickLabel', trials);
+xtickangle(ax, 20);
+title(ax, '\fontname{仿宋}速度最大误差热力图（60-80s）\fontname{Times New Roman}');
+apply_axis_style(ax);
+save_fig_pair(f, out_dir, 'heatmap_speedmax60_trial_scheme');
 end
 
 
