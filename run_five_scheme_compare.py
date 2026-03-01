@@ -12,7 +12,7 @@ import numpy as np
 
 DEFAULT_DATA_ROOT = Path(r"D:\Code\dataset\WID\Datasets\transformedData2")
 DEFAULT_TRUTH = DEFAULT_DATA_ROOT / "four_wheel_dataset_PassengerCar" / "trial01" / "GNSS_use.txt"
-DEFAULT_OUT = Path("temp_eval_5scheme")
+DEFAULT_OUT = DEFAULT_DATA_ROOT / "five_scheme_eval_20260301"
 
 
 @dataclass

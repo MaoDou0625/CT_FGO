@@ -23,16 +23,16 @@ Use Wheel-GINS executable and config (produces `traj.txt`).
 ## 4. Unified conversion + evaluation + report
 
 ```powershell
-python run_five_scheme_compare.py --out-dir temp_eval_5scheme
+python run_five_scheme_compare.py --out-dir D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301
 ```
 
 Outputs:
-- `temp_eval_5scheme/manifest_5schemes.csv`
-- `temp_eval_5scheme/summary_metrics.csv`
-- `temp_eval_5scheme/gate_results.csv`
-- `temp_eval_5scheme/compare_60_80.png`
-- `temp_eval_5scheme/compare_global_weighted.png`
-- `temp_eval_5scheme/FINAL_REPORT_5SCHEMES.md`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\manifest_5schemes.csv`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\summary_metrics.csv`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\gate_results.csv`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\compare_60_80.png`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\compare_global_weighted.png`
+- `D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301\FINAL_REPORT_5SCHEMES.md`
 
 Converted files (required transformedfor***):
 - `D:\Code\dataset\WID\Datasets\transformedData2\transformedforKF_GINS_schemeD_trial01\ct_trajectory.txt`
