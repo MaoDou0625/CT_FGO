@@ -24,7 +24,7 @@ Use Wheel-GINS executable and config (produces `traj.txt`).
 ## 4. Unified conversion + evaluation + report
 
 ```powershell
-python run_five_scheme_compare.py --out-dir D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301
+python run_multi_scheme_compare.py --out-dir D:\Code\dataset\WID\Datasets\transformedData2\five_scheme_eval_20260301
 ```
 
 Outputs:

@@ -344,7 +344,7 @@ def write_command_list(out_dir: Path, manifest_path: Path) -> None:
     txt = f"""# Commands For Reproduction
 
 ## 1) Build and run unified multi-scheme comparison
-python run_five_scheme_compare.py --out-dir "{out_dir}"
+python run_multi_scheme_compare.py --out-dir "{out_dir}"
 
 ## 2) Re-run unified evaluate only
 python experiment_60_80.py evaluate --manifest "{manifest_path}" --out-dir "{out_dir}" --baseline-run schemeA_ct_main_allwheel --segments 0-20,20-40,40-60,60-80,80-90 --target-segment 60-80
