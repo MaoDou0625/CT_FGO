@@ -3,6 +3,7 @@ import csv
 import re
 import subprocess
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -14,6 +15,7 @@ import numpy as np
 DEFAULT_DATA_ROOT = Path(r"D:\Code\dataset\WID\Datasets\transformedData2")
 DEFAULT_TRUTH = DEFAULT_DATA_ROOT / "four_wheel_dataset_PassengerCar" / "trial01" / "GNSS_use.txt"
 DEFAULT_OUT = DEFAULT_DATA_ROOT / "five_scheme_eval_20260301"
+DEFAULT_TRUTH_ROOT = DEFAULT_DATA_ROOT / "four_wheel_dataset_PassengerCar"
 
 
 @dataclass
@@ -124,6 +126,17 @@ def read_csv(path: Path) -> List[dict]:
         return list(csv.DictReader(f))
 
 
+def write_csv_rows(path: Path, rows: List[dict]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+
 def render_charts(summary_rows: List[dict], out_dir: Path) -> None:
     names = [r["run_name"] for r in summary_rows]
     pos_60_80 = [float(r["pos_rmse_60_80_m"]) for r in summary_rows]
@@ -169,7 +182,99 @@ def safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
 
 
-def render_detailed_trajectory_plots(manifest_rows: List[dict], truth_path: Path, out_dir: Path) -> None:
+def parse_trials_arg(trials_arg: str, truth_root: Path) -> List[str]:
+    if trials_arg.strip().lower() == "all":
+        trials = sorted(p.name for p in truth_root.glob("trial*") if p.is_dir())
+        if not trials:
+            raise RuntimeError(f"No trial folders found under: {truth_root}")
+        return trials
+    trials = [x.strip() for x in trials_arg.split(",") if x.strip()]
+    if not trials:
+        raise ValueError("--trials is empty")
+    return trials
+
+
+def format_template(path_tpl: str, trial: str) -> Path:
+    return Path(path_tpl.format(trial=trial))
+
+
+def pick_first_existing(candidates: List[Path]) -> Path:
+    for c in candidates:
+        if c.exists():
+            return c
+    joined = "\n".join(str(c) for c in candidates)
+    raise FileNotFoundError(f"No valid input found. Tried:\n{joined}")
+
+
+def resolve_default_scheme_path(data_root: Path, scheme: str, trial: str) -> Path:
+    trial_suffix = trial.replace("trial", "")
+    candidates = {
+        "A": [
+            data_root / "output_schemeA_main_allwheel_20260228" / trial / "ct_trajectory.txt",
+            data_root / "output_schemeA_main_allwheel_20260228" / f"ct_trajectory_{trial}.txt",
+            data_root / "output_schemeA_main_allwheel_20260228" / f"ct_trajectory_trial{trial_suffix}.txt",
+            data_root / "output_schemeA_main_allwheel_20260228" / "ct_trajectory.txt",
+        ],
+        "B": [
+            data_root / "output_subtask3_schemeB_main_plus_rear_right" / trial / "ct_trajectory.txt",
+            data_root / "output_subtask3_schemeB_main_plus_rear_right" / f"ct_trajectory_{trial}.txt",
+            data_root / "output_subtask3_schemeB_main_plus_rear_right" / f"ct_trajectory_trial{trial_suffix}.txt",
+            data_root / "output_subtask3_schemeB_main_plus_rear_right" / "ct_trajectory.txt",
+        ],
+        "C": [
+            data_root / "output_scheme_c_front_left_20260228" / trial / "ct_trajectory.txt",
+            data_root / "output_scheme_c_front_left_20260228" / f"ct_trajectory_{trial}.txt",
+            data_root / "output_scheme_c_front_left_20260228" / f"ct_trajectory_trial{trial_suffix}.txt",
+            data_root / "output_scheme_c_front_left_20260228" / "ct_trajectory.txt",
+        ],
+        "F": [
+            data_root / "output_schemeF_main_only_20260301" / trial / "ct_trajectory.txt",
+            data_root / "output_schemeF_main_only_20260301" / f"ct_trajectory_{trial}.txt",
+            data_root / "output_schemeF_main_only_20260301" / f"ct_trajectory_trial{trial_suffix}.txt",
+            data_root / "output_schemeF_main_only_20260301" / "ct_trajectory.txt",
+        ],
+        "D": [
+            data_root / f"kf_gins_D_mainimu_{trial}_direct_20260228_01" / "KF_GINS_Navresult.nav",
+            data_root / f"kf_gins_D_mainimu_{trial}_20260228_01" / "KF_GINS_Navresult.nav",
+        ],
+        "E": [
+            data_root / f"wheel_gins_single_rear2_{trial}_20260228_2145" / "traj.txt",
+            data_root / f"wheel_gins_schemeE_{trial}_20260228_2128" / "traj.txt",
+            data_root / "wheel_gins_single_rear2_20260228_2145" / "traj.txt",
+            data_root / "wheel_gins_schemeE_trial01_20260228_2128" / "traj.txt",
+        ],
+    }
+    return pick_first_existing(candidates[scheme])
+
+
+def resolve_input(
+    data_root: Path,
+    scheme: str,
+    trial: str,
+    template: str,
+) -> Path:
+    if template:
+        path = format_template(template, trial)
+        if not path.exists():
+            raise FileNotFoundError(f"Missing file for scheme {scheme}, trial {trial}: {path}")
+        return path
+    return resolve_default_scheme_path(data_root, scheme, trial)
+
+
+def render_detailed_trajectory_plots(manifest_rows: List[dict], out_dir: Path) -> None:
+    rows_by_trial = defaultdict(list)
+    truth_by_trial = {}
+    for row in manifest_rows:
+        truth_path = Path(row["truth_path"])
+        trial = truth_path.parent.name
+        rows_by_trial[trial].append(row)
+        truth_by_trial[trial] = truth_path
+
+    for trial, rows in sorted(rows_by_trial.items()):
+        render_trial_detailed_plots(rows, truth_by_trial[trial], out_dir / "detailed_plots" / trial)
+
+
+def render_trial_detailed_plots(manifest_rows: List[dict], truth_path: Path, detailed_dir: Path) -> None:
     truth = load_table(truth_path)
     if truth.shape[1] < 4:
         raise ValueError(f"Truth format unexpected: {truth_path}")
@@ -184,14 +289,13 @@ def render_detailed_trajectory_plots(manifest_rows: List[dict], truth_path: Path
     alt0 = float(alt_truth[0])
     truth_e_all, truth_n_all, truth_u_all = latlonalt_to_enu(lat_truth, lon_truth, alt_truth, lat0, lon0, alt0)
 
-    detailed_dir = out_dir / "detailed_plots"
     per_scheme_dir = detailed_dir / "per_scheme"
     detailed_dir.mkdir(parents=True, exist_ok=True)
     per_scheme_dir.mkdir(parents=True, exist_ok=True)
 
     fig_2d_all, ax_2d_all = plt.subplots(figsize=(8, 6))
     ax_2d_all.plot(truth_e_all, truth_n_all, "k-", linewidth=2.0, label="truth")
-    ax_2d_all.set_title("All Schemes 2D Trajectory vs Truth")
+    ax_2d_all.set_title(f"All Schemes 2D Trajectory vs Truth ({truth_path.parent.name})")
     ax_2d_all.set_xlabel("East (m)")
     ax_2d_all.set_ylabel("North (m)")
     ax_2d_all.grid(True, alpha=0.3)
@@ -205,7 +309,7 @@ def render_detailed_trajectory_plots(manifest_rows: List[dict], truth_path: Path
     axs_enu_all[1].set_ylabel("N (m)")
     axs_enu_all[2].set_ylabel("U (m)")
     axs_enu_all[2].set_xlabel("Time (s)")
-    axs_enu_all[0].set_title("All Schemes ENU Displacement vs Truth")
+    axs_enu_all[0].set_title(f"All Schemes ENU Displacement vs Truth ({truth_path.parent.name})")
     for ax in axs_enu_all:
         ax.grid(True, alpha=0.3)
 
@@ -334,7 +438,7 @@ def write_final_report(
             "",
             "## Notes",
             "- Unified segments: `0-20,20-40,40-60,60-80,80-90`",
-            "- Baseline: `schemeA_ct_main_allwheel`",
+            "- Baseline is applied per trial: `schemeA_ct_main_allwheel_{trial}`",
         ]
     )
     (out_dir / "FINAL_REPORT_5SCHEMES.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -344,10 +448,10 @@ def write_command_list(out_dir: Path, manifest_path: Path) -> None:
     txt = f"""# Commands For Reproduction
 
 ## 1) Build and run unified multi-scheme comparison
-python run_multi_scheme_compare.py --out-dir "{out_dir}"
+python run_multi_scheme_compare.py --out-dir "{out_dir}" --trials all
 
-## 2) Re-run unified evaluate only
-python experiment_60_80.py evaluate --manifest "{manifest_path}" --out-dir "{out_dir}" --baseline-run schemeA_ct_main_allwheel --segments 0-20,20-40,40-60,60-80,80-90 --target-segment 60-80
+## 2) Re-run evaluate for one trial only (example: trial01)
+python experiment_60_80.py evaluate --manifest "{out_dir / 'trial01' / 'manifest_multischemes.csv'}" --out-dir "{out_dir / 'trial01'}" --baseline-run schemeA_ct_main_allwheel_trial01 --segments 0-20,20-40,40-60,60-80,80-90 --target-segment 60-80
 """
     (out_dir / "RUN_COMMANDS_5SCHEMES.md").write_text(txt, encoding="utf-8")
 
@@ -355,39 +459,41 @@ python experiment_60_80.py evaluate --manifest "{manifest_path}" --out-dir "{out
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Unified multi-scheme comparison for CT_FGO vs KF-GINS vs Wheel-GINS.")
     p.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
-    p.add_argument("--truth-path", type=Path, default=DEFAULT_TRUTH)
+    p.add_argument("--truth-root", type=Path, default=DEFAULT_TRUTH_ROOT)
+    p.add_argument("--trials", default="all", help="Comma separated trial names (e.g. trial01,trial02) or 'all'.")
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     p.add_argument("--segments", default="0-20,20-40,40-60,60-80,80-90")
+    p.add_argument("--check-only", action="store_true", help="Only validate all input paths and conversions, no evaluation.")
 
     p.add_argument(
-        "--scheme-a-ct",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "output_schemeA_main_allwheel_20260228" / "ct_trajectory.txt",
+        "--scheme-a-ct-template",
+        default="",
+        help="Path template with {trial}, e.g. D:/.../output_schemeA/.../{trial}/ct_trajectory.txt",
     )
     p.add_argument(
-        "--scheme-b-ct",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "output_subtask3_schemeB_main_plus_rear_right" / "ct_trajectory.txt",
+        "--scheme-b-ct-template",
+        default="",
+        help="Path template with {trial} for scheme B ct_trajectory.txt",
     )
     p.add_argument(
-        "--scheme-c-ct",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "output_scheme_c_front_left_20260228" / "ct_trajectory.txt",
+        "--scheme-c-ct-template",
+        default="",
+        help="Path template with {trial} for scheme C ct_trajectory.txt",
     )
     p.add_argument(
-        "--scheme-f-ct",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "output_schemeF_main_only_20260301" / "ct_trajectory.txt",
+        "--scheme-f-ct-template",
+        default="",
+        help="Path template with {trial} for scheme F ct_trajectory.txt",
     )
     p.add_argument(
-        "--scheme-d-kf-nav",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "kf_gins_D_mainimu_trial01_direct_20260228_01" / "KF_GINS_Navresult.nav",
+        "--scheme-d-kf-nav-template",
+        default="",
+        help="Path template with {trial} for KF-GINS nav file",
     )
     p.add_argument(
-        "--scheme-e-wheel-traj",
-        type=Path,
-        default=DEFAULT_DATA_ROOT / "wheel_gins_single_rear2_20260228_2145" / "traj.txt",
+        "--scheme-e-wheel-traj-template",
+        default="",
+        help="Path template with {trial} for Wheel-GINS traj file",
     )
     return p
 
@@ -395,40 +501,78 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    trials = parse_trials_arg(args.trials, args.truth_root)
 
-    kf_out_dir = args.data_root / "transformedforKF_GINS_schemeD_trial01"
-    wheel_out_dir = args.data_root / "transformedforWheel_GINS_schemeE_trial01"
-    kf_converted = kf_out_dir / "ct_trajectory.txt"
-    wheel_converted = wheel_out_dir / "ct_trajectory.txt"
+    schemes = []
+    kf_converted_list = []
+    wheel_converted_list = []
+    for trial in trials:
+        truth_path = args.truth_root / trial / "GNSS_use.txt"
+        if not truth_path.exists():
+            raise FileNotFoundError(f"Missing truth file: {truth_path}")
 
-    convert_kf_gins_nav_to_ct_like(args.scheme_d_kf_nav, kf_converted)
-    convert_wheel_gins_traj_to_ct_like(args.scheme_e_wheel_traj, wheel_converted)
+        scheme_a_ct = resolve_input(args.data_root, "A", trial, args.scheme_a_ct_template)
+        scheme_b_ct = resolve_input(args.data_root, "B", trial, args.scheme_b_ct_template)
+        scheme_c_ct = resolve_input(args.data_root, "C", trial, args.scheme_c_ct_template)
+        scheme_f_ct = resolve_input(args.data_root, "F", trial, args.scheme_f_ct_template)
+        scheme_d_kf_nav = resolve_input(args.data_root, "D", trial, args.scheme_d_kf_nav_template)
+        scheme_e_wheel_traj = resolve_input(args.data_root, "E", trial, args.scheme_e_wheel_traj_template)
 
-    schemes = [
-        Scheme("schemeA_ct_main_allwheel", args.scheme_a_ct, args.truth_path),
-        Scheme("schemeB_ct_main_rear_right", args.scheme_b_ct, args.truth_path),
-        Scheme("schemeC_ct_main_front_left", args.scheme_c_ct, args.truth_path),
-        Scheme("schemeF_ct_main_only", args.scheme_f_ct, args.truth_path),
-        Scheme("schemeD_kf_gins_main_imu", kf_converted, args.truth_path),
-        Scheme("schemeE_wheel_gins_main_rear", wheel_converted, args.truth_path),
-    ]
+        kf_out_dir = args.data_root / f"transformedforKF_GINS_schemeD_{trial}"
+        wheel_out_dir = args.data_root / f"transformedforWheel_GINS_schemeE_{trial}"
+        kf_converted = kf_out_dir / "ct_trajectory.txt"
+        wheel_converted = wheel_out_dir / "ct_trajectory.txt"
+        convert_kf_gins_nav_to_ct_like(scheme_d_kf_nav, kf_converted)
+        convert_wheel_gins_traj_to_ct_like(scheme_e_wheel_traj, wheel_converted)
+        kf_converted_list.append(kf_converted)
+        wheel_converted_list.append(wheel_converted)
+
+        schemes.extend(
+            [
+                Scheme(f"schemeA_ct_main_allwheel_{trial}", scheme_a_ct, truth_path),
+                Scheme(f"schemeB_ct_main_rear_right_{trial}", scheme_b_ct, truth_path),
+                Scheme(f"schemeC_ct_main_front_left_{trial}", scheme_c_ct, truth_path),
+                Scheme(f"schemeF_ct_main_only_{trial}", scheme_f_ct, truth_path),
+                Scheme(f"schemeD_kf_gins_main_imu_{trial}", kf_converted, truth_path),
+                Scheme(f"schemeE_wheel_gins_main_rear_{trial}", wheel_converted, truth_path),
+            ]
+        )
 
     manifest_path = args.out_dir / "manifest_multischemes.csv"
     write_manifest(manifest_path, schemes)
-    run_unified_evaluate(manifest_path, args.out_dir, "schemeA_ct_main_allwheel", args.segments)
+    if args.check_only:
+        print(f"Check passed. trials={len(trials)}, runs={len(schemes)}")
+        print(f"Manifest: {manifest_path}")
+        return
+
+    all_summary_rows: List[dict] = []
+    all_gate_rows: List[dict] = []
+    for trial in trials:
+        trial_rows = [s for s in schemes if s.truth_path.parent.name == trial]
+        trial_manifest = args.out_dir / trial / "manifest_multischemes.csv"
+        write_manifest(trial_manifest, trial_rows)
+        trial_out = args.out_dir / trial
+        run_unified_evaluate(trial_manifest, trial_out, f"schemeA_ct_main_allwheel_{trial}", args.segments)
+        all_summary_rows.extend(read_csv(trial_out / "summary_metrics.csv"))
+        all_gate_rows.extend(read_csv(trial_out / "gate_results.csv"))
+
+    write_csv_rows(args.out_dir / "summary_metrics.csv", all_summary_rows)
+    write_csv_rows(args.out_dir / "gate_results.csv", all_gate_rows)
+
     render_detailed_trajectory_plots(
-        [
-            {"run_name": s.run_name, "result_path": str(s.result_path)}
-            for s in schemes
-        ],
-        args.truth_path,
+        [{"run_name": s.run_name, "result_path": str(s.result_path), "truth_path": str(s.truth_path)} for s in schemes],
         args.out_dir,
     )
 
-    summary_rows = read_csv(args.out_dir / "summary_metrics.csv")
-    gate_rows = read_csv(args.out_dir / "gate_results.csv")
-    render_charts(summary_rows, args.out_dir)
-    write_final_report(args.out_dir, manifest_path, summary_rows, gate_rows, kf_converted, wheel_converted)
+    render_charts(all_summary_rows, args.out_dir)
+    write_final_report(
+        args.out_dir,
+        manifest_path,
+        all_summary_rows,
+        all_gate_rows,
+        kf_converted_list[0] if kf_converted_list else Path(""),
+        wheel_converted_list[0] if wheel_converted_list else Path(""),
+    )
     write_command_list(args.out_dir, manifest_path)
     print(f"Done. Outputs in: {args.out_dir}")
 
