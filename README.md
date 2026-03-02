@@ -96,3 +96,200 @@ Minimize: $ || \omega_{sensor}^{pred}.xy - \omega_{meas}^{corr}.xy ||^2 $
 
 ---
 *Maintained by Xun Yi. Updated Feb 2026.*
+
+## Data Format and YAML Guide (Hailaer / WID workflows)
+
+This section documents the raw data structure, CT_FGO required text formats, and YAML templates used in recent experiments.
+
+### 1) Original raw format (.mat)
+
+The converted dataset file is `aligned_imu_gnss_rtk.mat`, with fields:
+
+- `out.imu`, `out.gnss`, `out.rtk`
+- `params.imu_cols`, `params.gnss_cols`, `params.rtk_cols`
+- `params.imu_time_scale`, `params.gnss_time_scale`, `params.rtk_time_scale`
+- `params.imu_gyro_unit`, `params.imu_acc_unit`
+
+Typical `params` values:
+
+- `imu_time_scale = 1e-4`
+- `imu_gyro_unit = degph` (or `degps`)
+- `imu_acc_unit = mps2` (or `g`)
+- lon/lat in `deg`
+
+### 2) CT_FGO required text format
+
+#### 2.1 Main IMU (`Body_IMU.txt`)
+
+7 columns:
+
+`time dtheta_x dtheta_y dtheta_z dvel_x dvel_y dvel_z`
+
+Notes:
+
+- `time` in seconds.
+- `dtheta` must be gyro increment in radians (not rate).
+- `dvel` must be accel increment in m/s (not m/s^2).
+- If raw gyro is `degph`: `omega_rad_s = gyro_degph * pi / 180 / 3600`, then `dtheta = omega_rad_s * dt`.
+- If raw accel is `mps2`: `dvel = accel * dt`.
+
+#### 2.2 GNSS (`GNSS_low.txt`)
+
+Recommended 7 columns:
+
+`time lat lon h std_lat std_lon std_h`
+
+Minimal accepted format is 4 columns:
+
+`time lat lon h`
+
+Notes:
+
+- `lat/lon` in degree.
+- `h` in meter.
+
+#### 2.3 Truth (`RTK_truth.txt`)
+
+4 columns:
+
+`time lat lon h`
+
+Used for evaluation/plotting, not mandatory for solver runtime.
+
+### 3) Wheel IMU text format (if enabled)
+
+`ImuFileLoader` supports:
+
+- 7 columns: no wheel odometry speed field.
+- 8 columns: one wheel speed field.
+- 9 columns: dual wheel speed fields (averaged).
+
+First 7 columns are always:
+
+`time dtheta_x dtheta_y dtheta_z dvel_x dvel_y dvel_z`
+
+### 4) YAML templates
+
+#### 4.1 CT_FGO main IMU + GNSS only (CT_D style)
+
+```yaml
+# ob_gins_ct_D.yaml
+gnssfile: "D:/path/GNSS_low.txt"
+outputpath: "D:/path/ct_D_output"
+save_multi_imu: true
+
+imu_main:
+  type: "standard"
+  file: "D:/path/Body_IMU.txt"
+  columns: 7
+  rate_hz: 1000
+  antlever: [0.0, 0.0, 0.0]
+  imunoise:
+    accel_noise: 25
+    gyro_noise: 0.004
+    accel_bias_rw: 5
+    gyro_bias_rw: 1
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+starttime: 5476.3
+endtime: 5789.7
+aligntime: 3
+kf_interval_sec: 0.1
+num_iterations: 20
+isearth: true
+
+comparison:
+  enable: false
+```
+
+#### 4.2 CT_FGO with wheel IMU(s)
+
+```yaml
+gnssfile: "D:/path/GNSS_low.txt"
+outputpath: "D:/path/output"
+save_multi_imu: true
+
+imu_main:
+  type: "standard"
+  file: "D:/path/Body_IMU.txt"
+  columns: 7
+  rate_hz: 120
+  antlever: [0.0, 0.0, 0.0]
+  imunoise:
+    accel_noise: 25
+    gyro_noise: 0.004
+    accel_bias_rw: 5
+    gyro_bias_rw: 1
+    accel_corr_time: 3600.0
+    gyro_corr_time: 3600.0
+
+center_imu4:
+  type: "wheel"
+  side: "right"
+  file: "D:/path/wheel_imu4.txt"
+  columns: 8
+  rate_hz: 120
+  antlever: [0.0, 0.0, 0.0]
+  speed_weight: 10.0
+  nhc_weight: 10.0
+  attitude_weight_roll: 100.0
+  attitude_weight_yaw: 100.0
+  priors:
+    radius_std: 0.005
+    lever_std: 0.02
+
+starttime: 1
+endtime: 999999
+aligntime: 3
+kf_interval_sec: 0.1
+num_iterations: 20
+isearth: true
+```
+
+#### 4.3 KF-GINS YAML (for CT vs KF comparison)
+
+```yaml
+# kf-gins.yaml
+imupath: "D:/path/Body_IMU.txt"
+gnsspath: "D:/path/GNSS_low.txt"
+outputpath: "D:/path/kf_output"
+imudatalen: 7
+imudatarate: 1000
+starttime: 5476.3
+endtime: 5789.7
+
+initpos: [32.7574077000, 35.0221411000, 460.1400]
+initvel: [0.0, 0.0, 0.0]
+initatt: [0.0, 0.0, 0.0]
+
+initgyrbias: [0, 0, 0]
+initaccbias: [0, 0, 0]
+initgyrscale: [0, 0, 0]
+initaccscale: [0, 0, 0]
+
+initposstd: [2.0, 2.0, 5.0]
+initvelstd: [0.5, 0.5, 0.5]
+initattstd: [5.0, 5.0, 30.0]
+
+imunoise:
+  arw: [0.24, 0.24, 0.24]
+  vrw: [0.24, 0.24, 0.24]
+  gbstd: [50.0, 50.0, 50.0]
+  abstd: [250.0, 250.0, 250.0]
+  gsstd: [1000.0, 1000.0, 1000.0]
+  asstd: [1000.0, 1000.0, 1000.0]
+  corrtime: 1.0
+
+antlever: [0.0, 0.0, 0.0]
+```
+
+### 5) Reproducible scripts added in this repo
+
+- `tools/export_hailaer_mat_to_txt.m`: batch export `.mat -> txt` with scientific notation.
+- `tools/run_hailaer_ctd_kf.ps1`: run 7 datasets for CT_D and KF-GINS.
+- `tools/eval_nav_rmse.py`: evaluate CT/KF RMSE against RTK truth.
+
+Default output root used in recent runs:
+
+`D:/Code/dataset/hailaer/inertail/ctd_kf_compare_20260301`
