@@ -92,6 +92,12 @@ public:
     void AddBiasFactors(ceres::Problem& problem, 
                         std::vector<spline::ControlPoint>& control_points, 
                         double spline_dt) override;
+
+private:
+    bool use_nhc_ = false;
+    double nhc_weight_ = 0.0;
+    double nhc_interval_sec_ = 0.1;
+    Eigen::Vector3d l_sensor_nhc_point_ = Eigen::Vector3d::Zero();
 };
 
 // 轮式IMU处理器

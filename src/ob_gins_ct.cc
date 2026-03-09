@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <algorithm>
+#include <limits>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -35,6 +36,137 @@ DECLARE_int32(v);
 using namespace ob_gins;
 using namespace ob_gins::spline;
 using namespace ob_gins::factors;
+
+namespace {
+
+struct GnssQualityConfig {
+    bool enable = true;
+    double gap_threshold_sec = 2.5;
+    double jump_distance_threshold_m = 40.0;
+    double jump_speed_threshold_mps = 35.0;
+    double horizontal_std_threshold_m = 8.0;
+    double vertical_std_threshold_m = 12.0;
+    double gap_scale = 0.15;
+    double jump_scale = 0.05;
+    double std_scale = 0.25;
+    double min_scale = 0.01;
+};
+
+struct GnssQualitySample {
+    double weight_scale = 1.0;
+    double dt_prev = 0.0;
+    double dt_next = 0.0;
+    double dist_prev = 0.0;
+    double dist_next = 0.0;
+    double speed_prev = 0.0;
+    double speed_next = 0.0;
+    bool gap_adjacent = false;
+    bool jump_adjacent = false;
+    bool std_outlier = false;
+};
+
+GnssQualityConfig LoadGnssQualityConfig(const YAML::Node& config) {
+    GnssQualityConfig quality;
+    if (!config["gnss_quality"]) {
+        return quality;
+    }
+
+    const auto& node = config["gnss_quality"];
+    if (node["enable"]) quality.enable = node["enable"].as<bool>();
+    if (node["gap_threshold_sec"]) quality.gap_threshold_sec = node["gap_threshold_sec"].as<double>();
+    if (node["jump_distance_threshold_m"]) quality.jump_distance_threshold_m = node["jump_distance_threshold_m"].as<double>();
+    if (node["jump_speed_threshold_mps"]) quality.jump_speed_threshold_mps = node["jump_speed_threshold_mps"].as<double>();
+    if (node["horizontal_std_threshold_m"]) quality.horizontal_std_threshold_m = node["horizontal_std_threshold_m"].as<double>();
+    if (node["vertical_std_threshold_m"]) quality.vertical_std_threshold_m = node["vertical_std_threshold_m"].as<double>();
+    if (node["gap_scale"]) quality.gap_scale = node["gap_scale"].as<double>();
+    if (node["jump_scale"]) quality.jump_scale = node["jump_scale"].as<double>();
+    if (node["std_scale"]) quality.std_scale = node["std_scale"].as<double>();
+    if (node["min_scale"]) quality.min_scale = node["min_scale"].as<double>();
+    return quality;
+}
+
+double DistanceMeters(const Vector3d& a, const Vector3d& b) {
+    return (a - b).norm();
+}
+
+std::vector<GnssQualitySample> AnalyzeGnssQuality(const std::vector<GNSS>& gnss_enu,
+                                                  const GnssQualityConfig& config) {
+    std::vector<GnssQualitySample> quality(gnss_enu.size());
+    if (!config.enable) {
+        return quality;
+    }
+
+    for (size_t i = 0; i < gnss_enu.size(); ++i) {
+        auto& sample = quality[i];
+
+        if (i > 0) {
+            sample.dt_prev = gnss_enu[i].time - gnss_enu[i - 1].time;
+            sample.dist_prev = DistanceMeters(gnss_enu[i].blh, gnss_enu[i - 1].blh);
+            if (sample.dt_prev > 1.0e-6) {
+                sample.speed_prev = sample.dist_prev / sample.dt_prev;
+            }
+        }
+        if (i + 1 < gnss_enu.size()) {
+            sample.dt_next = gnss_enu[i + 1].time - gnss_enu[i].time;
+            sample.dist_next = DistanceMeters(gnss_enu[i + 1].blh, gnss_enu[i].blh);
+            if (sample.dt_next > 1.0e-6) {
+                sample.speed_next = sample.dist_next / sample.dt_next;
+            }
+        }
+
+        sample.gap_adjacent =
+            sample.dt_prev > config.gap_threshold_sec || sample.dt_next > config.gap_threshold_sec;
+        sample.jump_adjacent =
+            sample.dist_prev > config.jump_distance_threshold_m ||
+            sample.dist_next > config.jump_distance_threshold_m ||
+            sample.speed_prev > config.jump_speed_threshold_mps ||
+            sample.speed_next > config.jump_speed_threshold_mps;
+        sample.std_outlier =
+            std::max(gnss_enu[i].std.x(), gnss_enu[i].std.y()) > config.horizontal_std_threshold_m ||
+            gnss_enu[i].std.z() > config.vertical_std_threshold_m;
+
+        double scale = 1.0;
+        if (sample.gap_adjacent) scale *= config.gap_scale;
+        if (sample.jump_adjacent) scale *= config.jump_scale;
+        if (sample.std_outlier) scale *= config.std_scale;
+        sample.weight_scale = std::max(config.min_scale, scale);
+    }
+
+    return quality;
+}
+
+void SaveGnssQualityProfile(const std::string& output_path,
+                            const std::vector<GNSS>& gnss_global,
+                            const std::vector<GnssQualitySample>& quality) {
+    if (gnss_global.size() != quality.size()) {
+        return;
+    }
+
+    FileSaver saver(output_path + "/gnss_weight_profile.txt", 11);
+    for (size_t i = 0; i < gnss_global.size(); ++i) {
+        double flags = 0.0;
+        if (quality[i].gap_adjacent) flags += 1.0;
+        if (quality[i].jump_adjacent) flags += 2.0;
+        if (quality[i].std_outlier) flags += 4.0;
+
+        saver.dump({
+            gnss_global[i].time,
+            gnss_global[i].blh.x() * R2D,
+            gnss_global[i].blh.y() * R2D,
+            gnss_global[i].blh.z(),
+            gnss_global[i].std.x(),
+            gnss_global[i].std.y(),
+            gnss_global[i].std.z(),
+            quality[i].weight_scale,
+            quality[i].dt_prev,
+            quality[i].dt_next,
+            flags,
+        });
+    }
+    saver.close();
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
     google::InitGoogleLogging(argv[0]);
@@ -205,9 +337,24 @@ int main(int argc, char** argv) {
     problem.AddParameterBlock(gnss_lever_arm.data(), 3);
     problem.SetParameterBlockConstant(gnss_lever_arm.data());
 
-    Eigen::Vector3d gnss_std(1.0/0.1, 1.0/0.1, 1.0/0.2);
-    Matrix3d gnss_sqrt_info = gnss_std.asDiagonal(); 
-    for (const auto& gnss : gnss_enu) {
+    GnssQualityConfig gnss_quality_config = LoadGnssQualityConfig(config);
+    std::vector<GnssQualitySample> gnss_quality = AnalyzeGnssQuality(gnss_enu, gnss_quality_config);
+    SaveGnssQualityProfile(output_path, valid_gnss, gnss_quality);
+
+    size_t gap_count = 0;
+    size_t jump_count = 0;
+    size_t std_outlier_count = 0;
+    for (const auto& sample : gnss_quality) {
+        if (sample.gap_adjacent) ++gap_count;
+        if (sample.jump_adjacent) ++jump_count;
+        if (sample.std_outlier) ++std_outlier_count;
+    }
+    LOG(INFO) << "GNSS quality summary: gap_adjacent=" << gap_count
+              << ", jump_adjacent=" << jump_count
+              << ", std_outlier=" << std_outlier_count;
+
+    for (size_t gnss_idx = 0; gnss_idx < gnss_enu.size(); ++gnss_idx) {
+        const auto& gnss = gnss_enu[gnss_idx];
         int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, (int)control_points.size());
         if (k < 0 || k + 3 >= (int)control_points.size()) continue;
 
@@ -240,14 +387,17 @@ int main(int argc, char** argv) {
             }
         }
 
-        Matrix3d current_gnss_sqrt_info = gnss_sqrt_info;
+        Eigen::Vector3d base_std = gnss.std.cwiseMax(Eigen::Vector3d::Constant(0.05));
+        Matrix3d current_gnss_sqrt_info = base_std.cwiseInverse().asDiagonal();
         if (wheel_imu_count > 0 && max_wheel_speed < 0.05) {
             // If stationary, reduce GNSS weight significantly to prevent position drift
-            current_gnss_sqrt_info = gnss_sqrt_info * 0.001; 
+            current_gnss_sqrt_info *= 0.001;
             LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_speed=" << max_wheel_speed << "), reducing GNSS weight.";
         } else {
             LOG_EVERY_N(INFO, 100) << "Not stationary at t=" << gnss.time << " (wheel_imu_count=" << wheel_imu_count << ", max_speed=" << max_wheel_speed << ")";
         }
+
+        current_gnss_sqrt_info *= gnss_quality[gnss_idx].weight_scale;
 
         // Keep spline local-time parameterization consistent with other factors.
         auto* factor = ContinuousGnssFactor::Create(

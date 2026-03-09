@@ -169,6 +169,36 @@ bool StandardImuProcessor::LoadConfig(const YAML::Node& config_node, const std::
     l_body_sensor_ = LoadLeverArm(config_node, "antlever");
     LoadExtrinsics(config_node);
     LoadImuNoise(config_node);
+
+    if (config_node["nhc_weight"]) {
+        nhc_weight_ = config_node["nhc_weight"].as<double>();
+        use_nhc_ = nhc_weight_ > 0.0;
+    }
+    if (config_node["nhc_interval_sec"]) {
+        nhc_interval_sec_ = std::max(1.0 / std::max(rate_hz_, 1.0), config_node["nhc_interval_sec"].as<double>());
+    }
+    if (config_node["nhc_point"]) {
+        l_sensor_nhc_point_ = LoadLeverArm(config_node, "nhc_point");
+    }
+
+    if (config_node["nhc"]) {
+        const auto& nhc_node = config_node["nhc"];
+        if (nhc_node["enable"]) {
+            use_nhc_ = nhc_node["enable"].as<bool>();
+        }
+        if (nhc_node["weight"]) {
+            nhc_weight_ = nhc_node["weight"].as<double>();
+        }
+        if (nhc_node["interval_sec"]) {
+            nhc_interval_sec_ = std::max(1.0 / std::max(rate_hz_, 1.0), nhc_node["interval_sec"].as<double>());
+        }
+        if (nhc_node["odopoint"]) {
+            l_sensor_nhc_point_ = LoadLeverArm(nhc_node, "odopoint");
+        } else if (nhc_node["sensor_point"]) {
+            l_sensor_nhc_point_ = LoadLeverArm(nhc_node, "sensor_point");
+        }
+        use_nhc_ = use_nhc_ && nhc_weight_ > 0.0;
+    }
     return true;
 }
 
@@ -196,11 +226,17 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
     problem.AddParameterBlock(&td_, 1);
     problem.AddResidualBlock(factors::ScalarPriorFactor::Create(0.0, 0.01), nullptr, &td_); // Prior: mean 0, std 10ms
 
+    if (use_nhc_) {
+        problem.AddParameterBlock(l_sensor_nhc_point_.data(), 3);
+        problem.SetParameterBlockConstant(l_sensor_nhc_point_.data());
+    }
+
     for (size_t i = 0; i < control_points.size(); ++i) {
         problem.AddParameterBlock(bg_[i].data(), 3);
         problem.AddParameterBlock(ba_[i].data(), 3);
     }
 
+    double last_nhc_time = -1.0e9;
     for (const auto& imu : valid_imu_data_) {
         // Find index using time + td (approximate for knot finding)
         double t_sys = imu.time + td_; // Use current estimate or 0
@@ -226,6 +262,19 @@ void StandardImuProcessor::AddFactors(ceres::Problem& problem,
             l_body_sensor_.data(),
             &td_
         );
+
+        if (use_nhc_ && imu.time - last_nhc_time >= nhc_interval_sec_) {
+            auto* nhc_factor = factors::WheelNHCFactor::Create(
+                imu.time, spline_dt, control_points[k].timestamp(), nhc_weight_, l_sensor_nhc_point_);
+            problem.AddResidualBlock(nhc_factor, new ceres::HuberLoss(1.0),
+                control_points[k].pose_data(), control_points[k+1].pose_data(),
+                control_points[k+2].pose_data(), control_points[k+3].pose_data(),
+                q_body_imu_.coeffs().data(),
+                l_body_sensor_.data(),
+                l_sensor_nhc_point_.data(),
+                &td_);
+            last_nhc_time = imu.time;
+        }
     }
 }
 
