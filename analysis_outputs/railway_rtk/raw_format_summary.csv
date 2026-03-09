@@ -1,0 +1,11 @@
+level,column,dtype,unit,frequency,description
+raw_csv,timestamp,string,hh:mm:ss.uuuuuu,all rows; board RTC clock,Board-relative RTC timestamp from power-up.
+raw_csv,data_type,categorical string,,all rows,"Record type: I=IMU, U=UBX GNSS, ARR/DEP/BRK=event markers."
+raw_csv,data,string,hex or plain text,all rows,"Payload. IMU rows are 12-byte hex, U rows are UBX hex, event rows are text."
+decoded_imu,gyro_x / gyro_y / gyro_z,int16 decoded from hex,"deg/s raw scale, 4.37 mdps per LSB",about 1667 Hz,"Gyroscope axes from 12-byte IMU payload, little-endian pairs per README parser."
+decoded_imu,acc_x / acc_y / acc_z,int16 decoded from hex,"g raw scale, 0.061 mg per LSB",about 1667 Hz,"Accelerometer axes from 12-byte IMU payload, little-endian pairs per README parser."
+decoded_nav_pvt,lat / lon,float,degrees,"about 1 Hz on 2022-10-19, about 2 Hz on 2022-10-20",GNSS position from UBX NAV-PVT.
+decoded_nav_pvt,alt_m,float,meters above mean sea level,same as NAV-PVT,Computed from UBX hMSL / 1000.
+decoded_nav_pvt,hacc_m / vacc_m,float,meters,same as NAV-PVT,Horizontal and vertical accuracy from UBX hAcc/vAcc / 1000.
+decoded_nav_pvt,carr_soln,int,"0=no RTK, 1=float, 2=fix",same as NAV-PVT,Carrier solution state used to select RTK samples.
+decoded_nav_cov,covariance message,UBX NAV-COV,,about 1 Hz on 2022-10-20 only,Available on day 2 according to upstream README and local parse counts.
