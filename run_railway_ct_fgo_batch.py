@@ -143,7 +143,7 @@ gnss_quality:
   min_scale: 0.01
 
 gnss_bias:
-  enable: true
+  enable: false
   random_walk_sigma: 0.5
   correlation_time_sec: 120.0
   initial_bias_std: 5.0
