@@ -68,6 +68,7 @@ struct GnssInnovationGateConfig {
     double reacquire_sigma_threshold = 2.0;
     double rejected_scale = 0.01;
     int warmup_iterations = 4;
+    int anomaly_context_samples = 5;
 };
 
 struct GnssQualitySample {
@@ -83,6 +84,7 @@ struct GnssQualitySample {
     bool gap_adjacent = false;
     bool jump_adjacent = false;
     bool std_outlier = false;
+    bool anomaly_context = false;
     bool innovation_rejected = false;
 };
 
@@ -139,8 +141,10 @@ GnssInnovationGateConfig LoadGnssInnovationGateConfig(const YAML::Node& config, 
     if (node["reacquire_sigma_threshold"]) gate.reacquire_sigma_threshold = node["reacquire_sigma_threshold"].as<double>();
     if (node["rejected_scale"]) gate.rejected_scale = node["rejected_scale"].as<double>();
     if (node["warmup_iterations"]) gate.warmup_iterations = node["warmup_iterations"].as<int>();
+    if (node["anomaly_context_samples"]) gate.anomaly_context_samples = node["anomaly_context_samples"].as<int>();
     gate.warmup_iterations = std::max(1, gate.warmup_iterations);
     gate.reacquire_consecutive = std::max(1, gate.reacquire_consecutive);
+    gate.anomaly_context_samples = std::max(0, gate.anomaly_context_samples);
     return gate;
 }
 
@@ -191,6 +195,24 @@ std::vector<GnssQualitySample> AnalyzeGnssQuality(const std::vector<GNSS>& gnss_
     }
 
     return quality;
+}
+
+void ExpandGnssAnomalyContext(std::vector<GnssQualitySample>* quality, int context_samples) {
+    if (!quality || quality->empty()) {
+        return;
+    }
+
+    const size_t span = static_cast<size_t>(std::max(0, context_samples));
+    for (size_t i = 0; i < quality->size(); ++i) {
+        if (!(*quality)[i].gap_adjacent && !(*quality)[i].jump_adjacent && !(*quality)[i].std_outlier) {
+            continue;
+        }
+        const size_t start = (i > span) ? (i - span) : 0;
+        const size_t end = std::min(quality->size() - 1, i + span);
+        for (size_t j = start; j <= end; ++j) {
+            (*quality)[j].anomaly_context = true;
+        }
+    }
 }
 
 void SaveGnssQualityProfile(const std::string& output_path,
@@ -418,21 +440,25 @@ int main(int argc, char** argv) {
     GnssBiasConfig gnss_bias_config = LoadGnssBiasConfig(config);
     GnssInnovationGateConfig gnss_gate_config = LoadGnssInnovationGateConfig(config, total_iterations);
     std::vector<GnssQualitySample> gnss_quality = AnalyzeGnssQuality(gnss_enu, gnss_quality_config);
+    ExpandGnssAnomalyContext(&gnss_quality, gnss_gate_config.anomaly_context_samples);
 
     auto log_gnss_quality_summary = [&](const std::vector<GnssQualitySample>& quality, const std::string& stage_name) {
         size_t gap_count = 0;
         size_t jump_count = 0;
         size_t std_outlier_count = 0;
+        size_t anomaly_context_count = 0;
         size_t innovation_rejected_count = 0;
         for (const auto& sample : quality) {
             if (sample.gap_adjacent) ++gap_count;
             if (sample.jump_adjacent) ++jump_count;
             if (sample.std_outlier) ++std_outlier_count;
+            if (sample.anomaly_context) ++anomaly_context_count;
             if (sample.innovation_rejected) ++innovation_rejected_count;
         }
         LOG(INFO) << "GNSS quality summary [" << stage_name << "]: gap_adjacent=" << gap_count
                   << ", jump_adjacent=" << jump_count
                   << ", std_outlier=" << std_outlier_count
+                  << ", anomaly_context=" << anomaly_context_count
                   << ", innovation_rejected=" << innovation_rejected_count;
     };
 
@@ -595,6 +621,11 @@ int main(int argc, char** argv) {
                 sample.innovation_vertical / sigma_v < gnss_gate_config.reacquire_sigma_threshold;
 
             bool reject_sample = false;
+            const bool gate_armed = sample.anomaly_context || gnss.time < cooldown_until;
+            if (!gate_armed) {
+                continue;
+            }
+
             if (gnss.time < cooldown_until) {
                 if (innovation_good) {
                     ++reacquire_good_count;
@@ -609,7 +640,7 @@ int main(int argc, char** argv) {
                     reacquire_good_count = 0;
                     reject_sample = true;
                 }
-            } else if (innovation_bad) {
+            } else if (sample.anomaly_context && innovation_bad) {
                 cooldown_until = gnss.time + gnss_gate_config.cooldown_sec;
                 reacquire_good_count = 0;
                 reject_sample = true;

@@ -160,6 +160,7 @@ gnss_innovation_gate:
   reacquire_sigma_threshold: 2.0
   rejected_scale: 0.01
   warmup_iterations: 4
+  anomaly_context_samples: 5
 
 comparison:
   enable: false
