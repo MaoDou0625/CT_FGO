@@ -6,6 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import folium
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -78,7 +79,9 @@ def build_run_records(imu_manifest: Path, gnss_manifest: Path, run_filter: set[s
 def find_binary(repo_root: Path) -> Path:
     candidates = [
         repo_root / "bin" / "ob_gins_ct.exe",
+        repo_root / "bin" / "Release" / "ob_gins_ct.exe",
         repo_root / "build_auto" / "Release" / "ob_gins_ct.exe",
+        repo_root / "build_railway" / "Release" / "ob_gins_ct.exe",
         repo_root / "build_vcpkg" / "Release" / "ob_gins_ct.exe",
         repo_root / "build_scan" / "Release" / "ob_gins_ct.exe",
     ]
@@ -167,6 +170,46 @@ def load_matrix(path: Path, expected_cols: int | None = None) -> np.ndarray:
     return data
 
 
+def blh_to_enu(blh_deg: np.ndarray, origin_deg: np.ndarray) -> np.ndarray:
+    lat = np.radians(blh_deg[:, 0])
+    lon = np.radians(blh_deg[:, 1])
+    h = blh_deg[:, 2]
+
+    lat0 = np.radians(origin_deg[0])
+    lon0 = np.radians(origin_deg[1])
+    h0 = origin_deg[2]
+
+    a = 6378137.0
+    f = 1.0 / 298.257223563
+    e2 = f * (2.0 - f)
+
+    def ecef(lat_rad: np.ndarray | float, lon_rad: np.ndarray | float, height_m: np.ndarray | float) -> np.ndarray:
+        v = a / np.sqrt(1.0 - e2 * np.sin(lat_rad) ** 2)
+        x = (v + height_m) * np.cos(lat_rad) * np.cos(lon_rad)
+        y = (v + height_m) * np.cos(lat_rad) * np.sin(lon_rad)
+        z = (v * (1.0 - e2) + height_m) * np.sin(lat_rad)
+        if np.isscalar(lat_rad) or np.ndim(lat_rad) == 0:
+            return np.array([x, y, z], dtype=float)
+        return np.column_stack((x, y, z))
+
+    p = ecef(lat, lon, h)
+    p0 = ecef(lat0, lon0, h0)
+    dp = p - p0
+
+    sin_lat0 = np.sin(lat0)
+    cos_lat0 = np.cos(lat0)
+    sin_lon0 = np.sin(lon0)
+    cos_lon0 = np.cos(lon0)
+    transform = np.array(
+        [
+            [-sin_lon0, cos_lon0, 0.0],
+            [-sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0, cos_lat0],
+            [cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0],
+        ]
+    )
+    return dp @ transform.T
+
+
 def find_low_weight_spans(weight_profile: np.ndarray) -> list[tuple[float, float]]:
     if weight_profile.size == 0:
         return []
@@ -240,6 +283,73 @@ def plot_altitude(record: RunRecord, output_dir: Path) -> tuple[int, int]:
     return len(spans), int(weight_profile.shape[0])
 
 
+def plot_horizontal_comparison(record: RunRecord, output_dir: Path) -> None:
+    nav = load_matrix(output_dir / "ct_trajectory.txt", expected_cols=10)
+    gnss = load_matrix(record.gnss_txt, expected_cols=7)
+    rtk = load_matrix(record.rtk_txt, expected_cols=4)
+
+    if nav.size == 0:
+        raise FileNotFoundError(f"Missing CT_FGO trajectory for {record.run_name}")
+
+    candidates = [nav[:, 1:4]]
+    if gnss.size:
+        candidates.append(gnss[:, 1:4])
+    if rtk.size:
+        candidates.append(rtk[:, 1:4])
+    origin = candidates[0][0]
+
+    nav_enu = blh_to_enu(nav[:, 1:4], origin)
+    gnss_enu = blh_to_enu(gnss[:, 1:4], origin) if gnss.size else np.empty((0, 3))
+    rtk_enu = blh_to_enu(rtk[:, 1:4], origin) if rtk.size else np.empty((0, 3))
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.plot(nav_enu[:, 0], nav_enu[:, 1], color="#1f4e79", linewidth=1.6, label="CT_FGO nav")
+    if gnss_enu.size:
+        ax.plot(gnss_enu[:, 0], gnss_enu[:, 1], color="#6b7280", linewidth=1.0, alpha=0.85, label="GNSS")
+    if rtk_enu.size:
+        ax.plot(rtk_enu[:, 0], rtk_enu[:, 1], color="#0b7a46", linewidth=1.3, label="RTK fix")
+    ax.set_title(f"{record.run_name} horizontal comparison")
+    ax.set_xlabel("East (m)")
+    ax.set_ylabel("North (m)")
+    ax.grid(True, alpha=0.3)
+    ax.axis("equal")
+    ax.legend(loc="best")
+    fig.tight_layout()
+    fig.savefig(output_dir / "trajectory_comparison_2d.png", dpi=160)
+    plt.close(fig)
+
+    center = [float(origin[0]), float(origin[1])]
+    fmap = folium.Map(location=center, zoom_start=15, control_scale=True)
+
+    def add_track(points: np.ndarray, color: str, name: str) -> None:
+        if points.size == 0:
+            return
+        latlon = points[:, :2].tolist()
+        group = folium.FeatureGroup(name=name, show=True)
+        folium.PolyLine(latlon, color=color, weight=3, opacity=0.9).add_to(group)
+        folium.CircleMarker(latlon[0], radius=4, color=color, fill=True, fill_opacity=1.0, popup=f"{name} start").add_to(group)
+        folium.CircleMarker(latlon[-1], radius=4, color=color, fill=True, fill_opacity=1.0, popup=f"{name} end").add_to(group)
+        group.add_to(fmap)
+
+    add_track(nav[:, 1:4], "#1f4e79", "CT_FGO nav")
+    add_track(gnss[:, 1:4], "#6b7280", "GNSS")
+    add_track(rtk[:, 1:4], "#0b7a46", "RTK fix")
+    folium.LayerControl(collapsed=False).add_to(fmap)
+    all_tracks = [nav[:, 1:3]]
+    if gnss.size:
+        all_tracks.append(gnss[:, 1:3])
+    if rtk.size:
+        all_tracks.append(rtk[:, 1:3])
+    all_points = np.vstack(all_tracks)
+    fmap.fit_bounds(
+        [
+            [float(np.min(all_points[:, 0])), float(np.min(all_points[:, 1]))],
+            [float(np.max(all_points[:, 0])), float(np.max(all_points[:, 1]))],
+        ]
+    )
+    fmap.save(output_dir / "trajectory_comparison_map.html")
+
+
 def build_overview(records: list[RunRecord], output_root: Path) -> None:
     existing = [record for record in records if (output_root / record.run_name / "ct_trajectory.txt").exists()]
     if not existing:
@@ -311,6 +421,7 @@ def main() -> None:
         profile_rows = 0
         if return_code == 0 and (run_dir / "ct_trajectory.txt").exists():
             degraded_spans, profile_rows = plot_altitude(record, run_dir)
+            plot_horizontal_comparison(record, run_dir)
 
         summary_rows.append(
             {
