@@ -1,41 +1,38 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <cmath>
-#include <iomanip>
-#include <filesystem>
 #include <algorithm>
+#include <cmath>
+#include <filesystem>
+#include <iomanip>
+#include <iostream>
 #include <limits>
+#include <string>
+#include <vector>
 
+#include <ceres/ceres.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <ceres/ceres.h>
+#include <sophus/se3.hpp>
+#include <yaml-cpp/yaml.h>
 
 DECLARE_bool(logtostderr);
 DECLARE_int32(v);
 
-#include <yaml-cpp/yaml.h>
-#include <sophus/se3.hpp>
-
-#include "src/common/types.h"
-#include "src/common/earth.h"
 #include "src/common/angle.h"
+#include "src/common/earth.h"
 #include "src/common/rotation.h"
-#include "src/fileio/imufileloader.h"
-#include "src/fileio/gnssfileloader.h"
+#include "src/common/types.h"
+#include "src/core/imu_processor.h"
+#include "src/factors/BiasRandomWalkFactor.h"
+#include "src/factors/ContinuousGnssFactor.h"
+#include "src/factors/PriorFactors.h"
 #include "src/fileio/filesaver.h"
-#include "src/spline/SplineInitializer.h"
+#include "src/fileio/gnssfileloader.h"
 #include "src/spline/BSplineEvaluator.h"
 #include "src/spline/SophusSE3Manifold.h"
-#include "src/factors/ContinuousInertialFactor.h"
-#include "src/factors/ContinuousGnssFactor.h"
-#include "src/factors/BiasRandomWalkFactor.h"
-#include "src/factors/PriorFactors.h"
-#include "src/core/imu_processor.h"
+#include "src/spline/SplineInitializer.h"
 
 using namespace ob_gins;
-using namespace ob_gins::spline;
 using namespace ob_gins::factors;
+using namespace ob_gins::spline;
 
 namespace {
 
@@ -52,6 +49,27 @@ struct GnssQualityConfig {
     double min_scale = 0.01;
 };
 
+struct GnssBiasConfig {
+    bool enable = true;
+    double random_walk_sigma = 0.5;
+    double correlation_time_sec = 120.0;
+    double initial_bias_std = 5.0;
+};
+
+struct GnssInnovationGateConfig {
+    bool enable = true;
+    double horizontal_threshold_m = 12.0;
+    double vertical_threshold_m = 6.0;
+    double sigma_threshold = 4.0;
+    double cooldown_sec = 15.0;
+    int reacquire_consecutive = 3;
+    double reacquire_horizontal_threshold_m = 4.0;
+    double reacquire_vertical_threshold_m = 2.0;
+    double reacquire_sigma_threshold = 2.0;
+    double rejected_scale = 0.01;
+    int warmup_iterations = 4;
+};
+
 struct GnssQualitySample {
     double weight_scale = 1.0;
     double dt_prev = 0.0;
@@ -60,9 +78,12 @@ struct GnssQualitySample {
     double dist_next = 0.0;
     double speed_prev = 0.0;
     double speed_next = 0.0;
+    double innovation_horizontal = 0.0;
+    double innovation_vertical = 0.0;
     bool gap_adjacent = false;
     bool jump_adjacent = false;
     bool std_outlier = false;
+    bool innovation_rejected = false;
 };
 
 GnssQualityConfig LoadGnssQualityConfig(const YAML::Node& config) {
@@ -85,6 +106,44 @@ GnssQualityConfig LoadGnssQualityConfig(const YAML::Node& config) {
     return quality;
 }
 
+GnssBiasConfig LoadGnssBiasConfig(const YAML::Node& config) {
+    GnssBiasConfig bias;
+    if (!config["gnss_bias"]) {
+        return bias;
+    }
+
+    const auto& node = config["gnss_bias"];
+    if (node["enable"]) bias.enable = node["enable"].as<bool>();
+    if (node["random_walk_sigma"]) bias.random_walk_sigma = node["random_walk_sigma"].as<double>();
+    if (node["correlation_time_sec"]) bias.correlation_time_sec = node["correlation_time_sec"].as<double>();
+    if (node["initial_bias_std"]) bias.initial_bias_std = node["initial_bias_std"].as<double>();
+    return bias;
+}
+
+GnssInnovationGateConfig LoadGnssInnovationGateConfig(const YAML::Node& config, int max_iterations) {
+    GnssInnovationGateConfig gate;
+    gate.warmup_iterations = std::max(2, max_iterations / 2);
+    if (!config["gnss_innovation_gate"]) {
+        return gate;
+    }
+
+    const auto& node = config["gnss_innovation_gate"];
+    if (node["enable"]) gate.enable = node["enable"].as<bool>();
+    if (node["horizontal_threshold_m"]) gate.horizontal_threshold_m = node["horizontal_threshold_m"].as<double>();
+    if (node["vertical_threshold_m"]) gate.vertical_threshold_m = node["vertical_threshold_m"].as<double>();
+    if (node["sigma_threshold"]) gate.sigma_threshold = node["sigma_threshold"].as<double>();
+    if (node["cooldown_sec"]) gate.cooldown_sec = node["cooldown_sec"].as<double>();
+    if (node["reacquire_consecutive"]) gate.reacquire_consecutive = node["reacquire_consecutive"].as<int>();
+    if (node["reacquire_horizontal_threshold_m"]) gate.reacquire_horizontal_threshold_m = node["reacquire_horizontal_threshold_m"].as<double>();
+    if (node["reacquire_vertical_threshold_m"]) gate.reacquire_vertical_threshold_m = node["reacquire_vertical_threshold_m"].as<double>();
+    if (node["reacquire_sigma_threshold"]) gate.reacquire_sigma_threshold = node["reacquire_sigma_threshold"].as<double>();
+    if (node["rejected_scale"]) gate.rejected_scale = node["rejected_scale"].as<double>();
+    if (node["warmup_iterations"]) gate.warmup_iterations = node["warmup_iterations"].as<int>();
+    gate.warmup_iterations = std::max(1, gate.warmup_iterations);
+    gate.reacquire_consecutive = std::max(1, gate.reacquire_consecutive);
+    return gate;
+}
+
 double DistanceMeters(const Vector3d& a, const Vector3d& b) {
     return (a - b).norm();
 }
@@ -98,7 +157,6 @@ std::vector<GnssQualitySample> AnalyzeGnssQuality(const std::vector<GNSS>& gnss_
 
     for (size_t i = 0; i < gnss_enu.size(); ++i) {
         auto& sample = quality[i];
-
         if (i > 0) {
             sample.dt_prev = gnss_enu[i].time - gnss_enu[i - 1].time;
             sample.dist_prev = DistanceMeters(gnss_enu[i].blh, gnss_enu[i - 1].blh);
@@ -148,6 +206,7 @@ void SaveGnssQualityProfile(const std::string& output_path,
         if (quality[i].gap_adjacent) flags += 1.0;
         if (quality[i].jump_adjacent) flags += 2.0;
         if (quality[i].std_outlier) flags += 4.0;
+        if (quality[i].innovation_rejected) flags += 8.0;
 
         saver.dump({
             gnss_global[i].time,
@@ -166,6 +225,62 @@ void SaveGnssQualityProfile(const std::string& output_path,
     saver.close();
 }
 
+bool EvaluateSplinePosition(const std::vector<ControlPoint>& control_points,
+                            double t,
+                            double t0_spline,
+                            double spline_dt,
+                            Vector3d* enu_pos,
+                            Vector3d* vel_world = nullptr) {
+    int k = findControlPointIndex(t, t0_spline, spline_dt, static_cast<int>(control_points.size()));
+    if (k < 0 || k + 3 >= static_cast<int>(control_points.size())) {
+        return false;
+    }
+
+    double u = (t - control_points[k].timestamp()) / spline_dt;
+    auto res = BSplineEvaluator::Evaluate<double>(
+        u,
+        spline_dt,
+        control_points[k].pose(),
+        control_points[k + 1].pose(),
+        control_points[k + 2].pose(),
+        control_points[k + 3].pose());
+    if (enu_pos) {
+        *enu_pos = res.pose.translation();
+    }
+    if (vel_world) {
+        *vel_world = res.v_world;
+    }
+    return true;
+}
+
+Vector3d InterpolateGnssBias(const std::vector<Vector3d>& gnss_biases, int k, double u) {
+    if (gnss_biases.empty()) {
+        return Vector3d::Zero();
+    }
+    int k1 = std::min(k + 1, static_cast<int>(gnss_biases.size()) - 1);
+    double clamped_u = std::clamp(u, 0.0, 1.0);
+    return (1.0 - clamped_u) * gnss_biases[k] + clamped_u * gnss_biases[k1];
+}
+
+void SaveGnssBiasProfile(const std::string& output_path,
+                         const std::vector<ControlPoint>& control_points,
+                         const std::vector<Vector3d>& gnss_biases) {
+    if (control_points.size() != gnss_biases.size()) {
+        return;
+    }
+
+    FileSaver saver(output_path + "/gnss_bias_knots.txt", 4);
+    for (size_t i = 0; i < control_points.size(); ++i) {
+        saver.dump({
+            control_points[i].timestamp(),
+            gnss_biases[i].x(),
+            gnss_biases[i].y(),
+            gnss_biases[i].z(),
+        });
+    }
+    saver.close();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -178,8 +293,7 @@ int main(int argc, char** argv) {
     }
 
     LOG(INFO) << "OB_GINS Continuous Time Optimization";
-    
-    // 1. Load Config
+
     YAML::Node config;
     try {
         config = YAML::LoadFile(argv[1]);
@@ -188,7 +302,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 设置调试级别
     if (config["debug"] && config["debug"]["level"]) {
         FLAGS_v = config["debug"]["level"].as<int>();
     }
@@ -198,7 +311,6 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(output_path);
     }
 
-    // 2. Load Data - GNSS First (for initial time window and origin)
     LOG(INFO) << "Loading GNSS data...";
     std::string gnss_path = config["gnssfile"].as<std::string>();
     GnssFileLoader gnss_loader(gnss_path);
@@ -214,34 +326,30 @@ int main(int argc, char** argv) {
 
     double t_start_global = gnss_data.front().time;
     double t_end_global = gnss_data.back().time;
-
     if (config["starttime"]) t_start_global = std::max(t_start_global, config["starttime"].as<double>());
     if (config["endtime"]) t_end_global = std::min(t_end_global, config["endtime"].as<double>());
 
-    LOG(INFO) << "Initial Time window from GNSS: " << std::fixed << t_start_global << " to " << t_end_global 
+    LOG(INFO) << "Initial Time window from GNSS: " << std::fixed << t_start_global << " to " << t_end_global
               << " (Duration: " << (t_end_global - t_start_global) << "s)";
 
-    // Store all ImuProcessors
     std::vector<std::unique_ptr<ImuProcessor>> imu_processors;
-    
-    // Iterate through config to find all IMU entries
     for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
         std::string key = it->first.as<std::string>();
-        if (it->second.IsMap() && it->second["type"]) { 
-            std::string type = it->second["type"].as<std::string>();
-            
-            // Factory Pattern: Create specific processor based on type string
-            auto processor = ImuProcessor::Create(type);
-            
-            if (processor) {
-                if (processor->LoadConfig(it->second, key)) {
-                    LOG(INFO) << "Loaded IMU: " << key << " (Type: " << type << ")";
-                    imu_processors.push_back(std::move(processor));
-                } else {
-                    LOG(ERROR) << "Failed to load config for IMU: " << key;
-                }
-            }
+        if (!it->second.IsMap() || !it->second["type"]) {
+            continue;
         }
+
+        std::string type = it->second["type"].as<std::string>();
+        auto processor = ImuProcessor::Create(type);
+        if (!processor) {
+            continue;
+        }
+        if (!processor->LoadConfig(it->second, key)) {
+            LOG(ERROR) << "Failed to load config for IMU: " << key;
+            continue;
+        }
+        LOG(INFO) << "Loaded IMU: " << key << " (Type: " << type << ")";
+        imu_processors.push_back(std::move(processor));
     }
 
     if (imu_processors.empty()) {
@@ -249,232 +357,347 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // Load data for all IMUs and adjust global time window
     for (const auto& processor : imu_processors) {
         if (!processor->LoadData(t_start_global, t_end_global)) {
             LOG(ERROR) << "Failed to load data for IMU: " << processor->GetName();
             return -1;
         }
-        // Adjust global time window based on actual loaded IMU data
         if (!processor->GetImuData().empty()) {
             t_start_global = std::max(t_start_global, processor->GetImuData().front().time);
             t_end_global = std::min(t_end_global, processor->GetImuData().back().time);
         }
     }
-    
-    // Filter GNSS data based on final global time window
-    GNSS origin_gnss;
+
     bool origin_set = false;
     std::vector<GNSS> valid_gnss;
-    
     for (const auto& gnss : gnss_data) {
-        if (gnss.time >= t_start_global) {
-            if (!origin_set) {
-                origin_gnss = gnss;
-                origin_set = true;
-            }
-            if (gnss.time <= t_end_global) {
-                valid_gnss.push_back(gnss);
-            }
+        if (gnss.time < t_start_global || gnss.time > t_end_global) {
+            continue;
         }
+        if (!origin_set) {
+            origin_set = true;
+        }
+        valid_gnss.push_back(gnss);
     }
-    
+
     if (!origin_set || valid_gnss.empty()) {
         LOG(ERROR) << "No valid GNSS data in final time window [" << t_start_global << ", " << t_end_global << "].";
         return -1;
     }
 
-    LOG(INFO) << "Final Time window: " << std::fixed << t_start_global << " to " << t_end_global 
+    LOG(INFO) << "Final Time window: " << std::fixed << t_start_global << " to " << t_end_global
               << " (Duration: " << (t_end_global - t_start_global) << "s)";
-    
-    // 3. Initialize Spline and Earth Model
-    double spline_dt = 1.0; 
-    if (config["kf_interval_sec"]) spline_dt = config["kf_interval_sec"].as<double>();
-    
-    Earth earth;
-    Vector3d gravity_l, omega_ie_l;
-    // 以第一点 GNSS 作为局部坐标系原点
-    Vector3d origin_ecef = earth.blh2ecef(valid_gnss.front().blh);
 
+    double spline_dt = config["kf_interval_sec"] ? config["kf_interval_sec"].as<double>() : 1.0;
+    int total_iterations = config["num_iterations"] ? config["num_iterations"].as<int>() : 20;
+
+    Earth earth;
+    Vector3d gravity_l;
+    Vector3d omega_ie_l;
     if (config["isearth"] && config["isearth"].as<bool>()) {
         double g = earth.gravity(valid_gnss.front().blh);
-        gravity_l << 0, 0, -g; // 导航系(ENU)下的重力
-        omega_ie_l = earth.iewn(valid_gnss.front().blh(0)); // 导航系下的地球自转
+        gravity_l << 0.0, 0.0, -g;
+        omega_ie_l = earth.iewn(valid_gnss.front().blh(0));
     } else {
-        gravity_l << 0, 0, -9.80665;
+        gravity_l << 0.0, 0.0, -9.80665;
         omega_ie_l.setZero();
     }
 
-    // 4. Build Optimization Problem
-    ceres::Problem problem;
-    
-    // 初始化样条曲线控制点 (将 GNSS 转换为局部 ENU 进行初始化)
     std::vector<GNSS> gnss_enu = valid_gnss;
     std::vector<std::pair<double, Sophus::SE3d>> path_for_init;
-
     for (auto& g : gnss_enu) {
-        // Use global2local to convert BLH to local frame (ENU/NED)
-        // Store result in g.blh temporarily
-        g.blh = earth.global2local(valid_gnss.front().blh, g.blh); 
-        
-        // Prepare path for SplineInitializer
-        // Assume identity rotation for initialization if not available
+        g.blh = earth.global2local(valid_gnss.front().blh, g.blh);
         path_for_init.emplace_back(g.time, Sophus::SE3d(Eigen::Quaterniond::Identity(), g.blh));
     }
 
     std::vector<ControlPoint> control_points = SplineInitializer::InitializeFromPath(path_for_init, spline_dt);
-
-    // 设置位姿流形
-    for (auto& cp : control_points) {
-        problem.AddParameterBlock(cp.pose_data(), 7);
-        problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
-        // Biases are now managed by ImuProcessors individually
-    }
-
-    // 添加 GNSS 因子
-    // Body Frame is defined as GNSS Center, so Lever Arm is ZERO.
+    std::vector<Vector3d> gnss_biases(control_points.size(), Vector3d::Zero());
     Eigen::Vector3d gnss_lever_arm = Eigen::Vector3d::Zero();
-    problem.AddParameterBlock(gnss_lever_arm.data(), 3);
-    problem.SetParameterBlockConstant(gnss_lever_arm.data());
 
     GnssQualityConfig gnss_quality_config = LoadGnssQualityConfig(config);
+    GnssBiasConfig gnss_bias_config = LoadGnssBiasConfig(config);
+    GnssInnovationGateConfig gnss_gate_config = LoadGnssInnovationGateConfig(config, total_iterations);
     std::vector<GnssQualitySample> gnss_quality = AnalyzeGnssQuality(gnss_enu, gnss_quality_config);
-    SaveGnssQualityProfile(output_path, valid_gnss, gnss_quality);
 
-    size_t gap_count = 0;
-    size_t jump_count = 0;
-    size_t std_outlier_count = 0;
-    for (const auto& sample : gnss_quality) {
-        if (sample.gap_adjacent) ++gap_count;
-        if (sample.jump_adjacent) ++jump_count;
-        if (sample.std_outlier) ++std_outlier_count;
-    }
-    LOG(INFO) << "GNSS quality summary: gap_adjacent=" << gap_count
-              << ", jump_adjacent=" << jump_count
-              << ", std_outlier=" << std_outlier_count;
+    auto log_gnss_quality_summary = [&](const std::vector<GnssQualitySample>& quality, const std::string& stage_name) {
+        size_t gap_count = 0;
+        size_t jump_count = 0;
+        size_t std_outlier_count = 0;
+        size_t innovation_rejected_count = 0;
+        for (const auto& sample : quality) {
+            if (sample.gap_adjacent) ++gap_count;
+            if (sample.jump_adjacent) ++jump_count;
+            if (sample.std_outlier) ++std_outlier_count;
+            if (sample.innovation_rejected) ++innovation_rejected_count;
+        }
+        LOG(INFO) << "GNSS quality summary [" << stage_name << "]: gap_adjacent=" << gap_count
+                  << ", jump_adjacent=" << jump_count
+                  << ", std_outlier=" << std_outlier_count
+                  << ", innovation_rejected=" << innovation_rejected_count;
+    };
 
-    for (size_t gnss_idx = 0; gnss_idx < gnss_enu.size(); ++gnss_idx) {
-        const auto& gnss = gnss_enu[gnss_idx];
-        int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, (int)control_points.size());
-        if (k < 0 || k + 3 >= (int)control_points.size()) continue;
-
-        // Detect if stationary at gnss.time
+    auto compute_stationary_scale = [&](double gnss_time) {
         double max_wheel_speed = 0.0;
         int wheel_imu_count = 0;
-
         for (const auto& processor : imu_processors) {
-            if (processor->GetName().find("imu_main") == std::string::npos) {
-                const auto& imu_data = processor->GetImuData();
-                auto it = std::lower_bound(imu_data.begin(), imu_data.end(), gnss.time, 
-                    [](const IMU& a, double t) { return a.time < t; });
-                
-                if (it != imu_data.end() && it != imu_data.begin()) {
-                    double speed_sum = 0;
-                    int count = 0;
-                    // Average over a window of ~20 samples (around 0.16s at 120Hz)
-                    auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
-                    auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
-                    
-                    for(auto it2 = start_it; it2 != end_it; ++it2) {
-                        speed_sum += std::abs(it2->odovel / it2->dt);
-                        count++;
-                    }
-                    if (count > 0) {
-                        max_wheel_speed = std::max(max_wheel_speed, speed_sum / count);
-                        wheel_imu_count++;
-                    }
-                }
+            if (processor->GetName().find("imu_main") != std::string::npos) {
+                continue;
+            }
+            const auto& imu_data = processor->GetImuData();
+            auto it = std::lower_bound(
+                imu_data.begin(),
+                imu_data.end(),
+                gnss_time,
+                [](const IMU& a, double t) { return a.time < t; });
+            if (it == imu_data.end() || it == imu_data.begin()) {
+                continue;
+            }
+
+            double speed_sum = 0.0;
+            int count = 0;
+            auto start_it = (it - imu_data.begin() >= 10) ? (it - 10) : imu_data.begin();
+            auto end_it = (imu_data.end() - it >= 10) ? (it + 10) : imu_data.end();
+            for (auto it2 = start_it; it2 != end_it; ++it2) {
+                speed_sum += std::abs(it2->odovel / it2->dt);
+                ++count;
+            }
+            if (count > 0) {
+                max_wheel_speed = std::max(max_wheel_speed, speed_sum / count);
+                ++wheel_imu_count;
+            }
+        }
+        return (wheel_imu_count > 0 && max_wheel_speed < 0.05) ? 0.001 : 1.0;
+    };
+
+    auto add_pose_blocks = [&](ceres::Problem& problem) {
+        for (auto& cp : control_points) {
+            problem.AddParameterBlock(cp.pose_data(), 7);
+            problem.SetManifold(cp.pose_data(), new SophusSE3Manifold());
+        }
+    };
+
+    auto add_gnss_bias_blocks = [&](ceres::Problem& problem) {
+        for (auto& bias : gnss_biases) {
+            problem.AddParameterBlock(bias.data(), 3);
+            if (!gnss_bias_config.enable) {
+                problem.SetParameterBlockConstant(bias.data());
             }
         }
 
-        Eigen::Vector3d base_std = gnss.std.cwiseMax(Eigen::Vector3d::Constant(0.05));
-        Matrix3d current_gnss_sqrt_info = base_std.cwiseInverse().asDiagonal();
-        if (wheel_imu_count > 0 && max_wheel_speed < 0.05) {
-            // If stationary, reduce GNSS weight significantly to prevent position drift
-            current_gnss_sqrt_info *= 0.001;
-            LOG_EVERY_N(INFO, 100) << "Detected stationary at t=" << gnss.time << " (max_speed=" << max_wheel_speed << "), reducing GNSS weight.";
-        } else {
-            LOG_EVERY_N(INFO, 100) << "Not stationary at t=" << gnss.time << " (wheel_imu_count=" << wheel_imu_count << ", max_speed=" << max_wheel_speed << ")";
+        if (!gnss_biases.empty()) {
+            problem.AddResidualBlock(
+                LeverArmPriorFactor::Create(Vector3d::Zero(), gnss_bias_config.initial_bias_std),
+                nullptr,
+                gnss_biases.front().data());
         }
 
-        current_gnss_sqrt_info *= gnss_quality[gnss_idx].weight_scale;
+        if (gnss_bias_config.enable) {
+            for (size_t i = 0; i + 1 < gnss_biases.size(); ++i) {
+                problem.AddResidualBlock(
+                    BiasRandomWalkFactor::Create(
+                        spline_dt,
+                        gnss_bias_config.random_walk_sigma,
+                        gnss_bias_config.correlation_time_sec),
+                    nullptr,
+                    gnss_biases[i].data(),
+                    gnss_biases[i + 1].data());
+            }
+        }
+    };
 
-        // Keep spline local-time parameterization consistent with other factors.
-        auto* factor = ContinuousGnssFactor::Create(
-            gnss.time, spline_dt, control_points[k].timestamp(), gnss.blh, current_gnss_sqrt_info);
-        problem.AddResidualBlock(factor, nullptr, 
-            control_points[k].pose_data(), control_points[k+1].pose_data(), 
-            control_points[k+2].pose_data(), control_points[k+3].pose_data(),
-            gnss_lever_arm.data() // GNSS lever arm is zero
-        );
-    }
+    auto add_gnss_factors = [&](ceres::Problem& problem, const std::vector<GnssQualitySample>& quality) {
+        problem.AddParameterBlock(gnss_lever_arm.data(), 3);
+        problem.SetParameterBlockConstant(gnss_lever_arm.data());
 
-    // 添加所有 IMU 约束 (Standard + Wheel)
-    for (auto& processor : imu_processors) {
-        processor->AddFactors(problem, control_points, spline_dt, t_start_global, gravity_l, omega_ie_l);
-        processor->AddBiasFactors(problem, control_points, spline_dt);
-    }
+        for (size_t gnss_idx = 0; gnss_idx < gnss_enu.size(); ++gnss_idx) {
+            const auto& gnss = gnss_enu[gnss_idx];
+            int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, static_cast<int>(control_points.size()));
+            if (k < 0 || k + 3 >= static_cast<int>(control_points.size()) || k + 1 >= static_cast<int>(gnss_biases.size())) {
+                continue;
+            }
 
-    // 5. Solve
+            Eigen::Vector3d base_std = gnss.std.cwiseMax(Eigen::Vector3d::Constant(0.05));
+            Matrix3d current_gnss_sqrt_info = base_std.cwiseInverse().asDiagonal();
+            current_gnss_sqrt_info *= compute_stationary_scale(gnss.time);
+            current_gnss_sqrt_info *= quality[gnss_idx].weight_scale;
+
+            auto* factor = ContinuousGnssFactor::Create(
+                gnss.time,
+                spline_dt,
+                control_points[k].timestamp(),
+                gnss.blh,
+                current_gnss_sqrt_info);
+            problem.AddResidualBlock(
+                factor,
+                nullptr,
+                control_points[k].pose_data(),
+                control_points[k + 1].pose_data(),
+                control_points[k + 2].pose_data(),
+                control_points[k + 3].pose_data(),
+                gnss_biases[k].data(),
+                gnss_biases[k + 1].data(),
+                gnss_lever_arm.data());
+        }
+    };
+
+    auto add_all_imu_factors = [&](ceres::Problem& problem) {
+        for (auto& processor : imu_processors) {
+            processor->AddFactors(problem, control_points, spline_dt, t_start_global, gravity_l, omega_ie_l);
+            processor->AddBiasFactors(problem, control_points, spline_dt);
+        }
+    };
+
+    auto build_problem = [&](ceres::Problem& problem, const std::vector<GnssQualitySample>& quality) {
+        add_pose_blocks(problem);
+        add_gnss_bias_blocks(problem);
+        add_gnss_factors(problem, quality);
+        add_all_imu_factors(problem);
+    };
+
+    auto apply_innovation_gate = [&](std::vector<GnssQualitySample>& quality) {
+        if (!gnss_gate_config.enable) {
+            return;
+        }
+
+        double cooldown_until = -std::numeric_limits<double>::infinity();
+        int reacquire_good_count = 0;
+
+        for (size_t gnss_idx = 0; gnss_idx < gnss_enu.size(); ++gnss_idx) {
+            auto& sample = quality[gnss_idx];
+            const auto& gnss = gnss_enu[gnss_idx];
+            int k = findControlPointIndex(gnss.time, t_start_global, spline_dt, static_cast<int>(control_points.size()));
+            if (k < 0 || k + 1 >= static_cast<int>(gnss_biases.size())) {
+                continue;
+            }
+
+            Vector3d pred_pos;
+            if (!EvaluateSplinePosition(control_points, gnss.time, t_start_global, spline_dt, &pred_pos)) {
+                continue;
+            }
+
+            double u = (gnss.time - control_points[k].timestamp()) / spline_dt;
+            Vector3d pred_with_bias = pred_pos + InterpolateGnssBias(gnss_biases, k, u);
+            Vector3d residual = pred_with_bias - gnss.blh;
+            sample.innovation_horizontal = residual.head<2>().norm();
+            sample.innovation_vertical = std::abs(residual.z());
+
+            double sigma_h = std::max({gnss.std.x(), gnss.std.y(), 0.5});
+            double sigma_v = std::max(gnss.std.z(), 0.5);
+            bool innovation_bad =
+                sample.innovation_horizontal > gnss_gate_config.horizontal_threshold_m ||
+                sample.innovation_vertical > gnss_gate_config.vertical_threshold_m ||
+                sample.innovation_horizontal / sigma_h > gnss_gate_config.sigma_threshold ||
+                sample.innovation_vertical / sigma_v > gnss_gate_config.sigma_threshold;
+            bool innovation_good =
+                sample.innovation_horizontal < gnss_gate_config.reacquire_horizontal_threshold_m &&
+                sample.innovation_vertical < gnss_gate_config.reacquire_vertical_threshold_m &&
+                sample.innovation_horizontal / sigma_h < gnss_gate_config.reacquire_sigma_threshold &&
+                sample.innovation_vertical / sigma_v < gnss_gate_config.reacquire_sigma_threshold;
+
+            bool reject_sample = false;
+            if (gnss.time < cooldown_until) {
+                if (innovation_good) {
+                    ++reacquire_good_count;
+                    if (reacquire_good_count >= gnss_gate_config.reacquire_consecutive) {
+                        cooldown_until = -std::numeric_limits<double>::infinity();
+                        reacquire_good_count = 0;
+                    } else {
+                        reject_sample = true;
+                    }
+                } else {
+                    cooldown_until = std::max(cooldown_until, gnss.time + gnss_gate_config.cooldown_sec);
+                    reacquire_good_count = 0;
+                    reject_sample = true;
+                }
+            } else if (innovation_bad) {
+                cooldown_until = gnss.time + gnss_gate_config.cooldown_sec;
+                reacquire_good_count = 0;
+                reject_sample = true;
+            }
+
+            if (reject_sample) {
+                sample.weight_scale *= gnss_gate_config.rejected_scale;
+                sample.innovation_rejected = true;
+            }
+        }
+    };
+
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options.max_num_iterations = config["num_iterations"] ? config["num_iterations"].as<int>() : 20;
     options.minimizer_progress_to_stdout = true;
 
     ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
-    LOG(INFO) << summary.BriefReport();
+    std::vector<GnssQualitySample> final_gnss_quality = gnss_quality;
+    log_gnss_quality_summary(gnss_quality, "self_quality");
 
-    // 6. Save Results
+    if (gnss_gate_config.enable) {
+        options.max_num_iterations = std::min(total_iterations, gnss_gate_config.warmup_iterations);
+        ceres::Problem warmup_problem;
+        build_problem(warmup_problem, gnss_quality);
+        ceres::Solver::Summary warmup_summary;
+        ceres::Solve(options, &warmup_problem, &warmup_summary);
+        LOG(INFO) << "Warmup solve: " << warmup_summary.BriefReport();
+
+        final_gnss_quality = gnss_quality;
+        apply_innovation_gate(final_gnss_quality);
+        log_gnss_quality_summary(final_gnss_quality, "innovation_gated");
+    }
+
+    SaveGnssQualityProfile(output_path, valid_gnss, final_gnss_quality);
+    options.max_num_iterations = total_iterations;
+    ceres::Problem final_problem;
+    build_problem(final_problem, final_gnss_quality);
+    ceres::Solve(options, &final_problem, &summary);
+    LOG(INFO) << "Final solve: " << summary.BriefReport();
+
     std::string result_file = output_path + "/ct_trajectory.txt";
-    // 10 columns: time, lat, lon, alt, vx, vy, vz, roll, pitch, yaw
-    FileSaver saver(result_file, 10); 
-    
+    FileSaver saver(result_file, 10);
     double output_interval = config["kf_interval_sec"] ? config["kf_interval_sec"].as<double>() : 0.1;
     for (double t = t_start_global + spline_dt; t < t_end_global - spline_dt; t += output_interval) {
-        int k = findControlPointIndex(t, t_start_global, spline_dt, (int)control_points.size());
-        if (k < 0 || k + 3 >= (int)control_points.size()) continue;
+        int k = findControlPointIndex(t, t_start_global, spline_dt, static_cast<int>(control_points.size()));
+        if (k < 0 || k + 3 >= static_cast<int>(control_points.size())) {
+            continue;
+        }
 
-        // Keep local parameterization consistent with all factors: u = (t - t0) / dt.
         double u = (t - control_points[k].timestamp()) / spline_dt;
-        auto res = BSplineEvaluator::Evaluate<double>(u, spline_dt, 
-            control_points[k].pose(), control_points[k+1].pose(), 
-            control_points[k+2].pose(), control_points[k+3].pose());
-        
-        // Position: ENU -> BLH
+        auto res = BSplineEvaluator::Evaluate<double>(
+            u,
+            spline_dt,
+            control_points[k].pose(),
+            control_points[k + 1].pose(),
+            control_points[k + 2].pose(),
+            control_points[k + 3].pose());
+
         Vector3d enu_pos = res.pose.translation();
         Vector3d blh = earth.local2global(valid_gnss.front().blh, enu_pos);
-        blh[0] *= R2D; // Rad to Deg
+        blh[0] *= R2D;
         blh[1] *= R2D;
 
-        // Velocity: ENU
         Vector3d vel = res.v_world;
-
-        // Attitude: ENU Quaternion -> Euler (Deg)
         Vector3d euler = Rotation::quaternion2euler(res.pose.so3().unit_quaternion());
         euler *= R2D;
 
         saver.dump({t, blh[0], blh[1], blh[2], vel.x(), vel.y(), vel.z(), euler[0], euler[1], euler[2]});
     }
-
-    saver.close(); // Ensure file is flushed before python script reads it
-
+    saver.close();
+    SaveGnssBiasProfile(output_path, control_points, gnss_biases);
     LOG(INFO) << "Trajectory saved to: " << result_file;
 
-    // Save Errors for each IMU
     for (auto& processor : imu_processors) {
         processor->SaveErrors(output_path, control_points, spline_dt, t_start_global);
     }
 
-    // 7. Comparison Script
-        if (config["comparison"] && config["comparison"]["enable"].as<bool>()) {
-            std::string python_exe = "python";
-            std::string script = config["comparison"]["python_script"].as<std::string>();        std::string truth = config["comparison"]["truth_file"].as<std::string>();
-        
+    if (config["comparison"] && config["comparison"]["enable"].as<bool>()) {
+        std::string python_exe = "python";
+        std::string script = config["comparison"]["python_script"].as<std::string>();
+        std::string truth = config["comparison"]["truth_file"].as<std::string>();
+
         std::string cmd = python_exe + " " + script + " --result " + result_file + " --truth " + truth;
         LOG(INFO) << "Running comparison: " << cmd;
         int ret = std::system(cmd.c_str());
-        if (ret != 0) LOG(WARNING) << "Comparison script returned non-zero code: " << ret;
+        if (ret != 0) {
+            LOG(WARNING) << "Comparison script returned non-zero code: " << ret;
+        }
     }
 
     return 0;

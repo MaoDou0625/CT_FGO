@@ -112,8 +112,8 @@ imu_main:
   antlever: [0.0, 0.0, 0.0]
   nhc:
     enable: true
-    weight: 4.0
-    interval_sec: 0.2
+    weight: 12.0
+    interval_sec: 0.05
     odopoint: [0.0, 0.0, 0.0]
   imunoise:
     accel_noise: 80.0
@@ -141,6 +141,25 @@ gnss_quality:
   jump_scale: 0.05
   std_scale: 0.25
   min_scale: 0.01
+
+gnss_bias:
+  enable: true
+  random_walk_sigma: 0.5
+  correlation_time_sec: 120.0
+  initial_bias_std: 5.0
+
+gnss_innovation_gate:
+  enable: true
+  horizontal_threshold_m: 12.0
+  vertical_threshold_m: 6.0
+  sigma_threshold: 4.0
+  cooldown_sec: 15.0
+  reacquire_consecutive: 3
+  reacquire_horizontal_threshold_m: 4.0
+  reacquire_vertical_threshold_m: 2.0
+  reacquire_sigma_threshold: 2.0
+  rejected_scale: 0.01
+  warmup_iterations: 4
 
 comparison:
   enable: false

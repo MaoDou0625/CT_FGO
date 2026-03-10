@@ -16,6 +16,8 @@ struct ContinuousGnssFactor {
 
     template <typename T>
     bool operator()(const T* const p0, const T* const p1, const T* const p2, const T* const p3, 
+                    const T* const b0_ptr,
+                    const T* const b1_ptr,
                     const T* const l_ecc_ptr, 
                     T* residuals) const {
         
@@ -29,6 +31,8 @@ struct ContinuousGnssFactor {
         Eigen::Map<const SE3T> T1(p1);
         Eigen::Map<const SE3T> T2(p2);
         Eigen::Map<const SE3T> T3(p3);
+        Eigen::Map<const Vec3T> b0(b0_ptr);
+        Eigen::Map<const Vec3T> b1(b1_ptr);
         
         Eigen::Map<const Vec3T> l_ecc(l_ecc_ptr);
 
@@ -48,7 +52,8 @@ struct ContinuousGnssFactor {
         // P_axle_w = P_wb + R_wb * l_ecc
         // (Note: We apply rotation here because l_ecc moves with the wheel - it is fixed in IMU/Wheel frame)
         Vec3T P_wb = res.pose.translation();
-        Vec3T P_axle_w = P_wb + res.pose.so3() * l_ecc;
+        Vec3T bias = (T(1.0) - u) * b0 + u * b1;
+        Vec3T P_axle_w = P_wb + res.pose.so3() * l_ecc + bias;
 
         // 4. Compute Residual
         // r = P_axle_w - pos_meas
@@ -68,8 +73,10 @@ struct ContinuousGnssFactor {
         // 1: CP1 (7) - Pose
         // 2: CP2 (7) - Pose
         // 3: CP3 (7) - Pose
-        // 4: l_ecc (3) - Vector3
-        return new ceres::AutoDiffCostFunction<ContinuousGnssFactor, 3, 7, 7, 7, 7, 3>(
+        // 4: Bias0 (3) - GNSS bias at knot k
+        // 5: Bias1 (3) - GNSS bias at knot k+1
+        // 6: l_ecc (3) - Vector3
+        return new ceres::AutoDiffCostFunction<ContinuousGnssFactor, 3, 7, 7, 7, 7, 3, 3, 3>(
             new ContinuousGnssFactor(t, dt, t0, pos_meas, sqrt_info));
     }
 
