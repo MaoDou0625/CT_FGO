@@ -58,17 +58,18 @@ struct GnssBiasConfig {
 
 struct GnssInnovationGateConfig {
     bool enable = true;
+    bool only_anomaly_context = true;
     double horizontal_threshold_m = 12.0;
     double vertical_threshold_m = 6.0;
     double sigma_threshold = 4.0;
-    double cooldown_sec = 15.0;
-    int reacquire_consecutive = 3;
-    double reacquire_horizontal_threshold_m = 4.0;
-    double reacquire_vertical_threshold_m = 2.0;
-    double reacquire_sigma_threshold = 2.0;
-    double rejected_scale = 0.01;
+    double cooldown_sec = 8.0;
+    int reacquire_consecutive = 2;
+    double reacquire_horizontal_threshold_m = 6.0;
+    double reacquire_vertical_threshold_m = 3.0;
+    double reacquire_sigma_threshold = 2.5;
+    double rejected_scale = 0.05;
     int warmup_iterations = 4;
-    int anomaly_context_samples = 5;
+    int anomaly_context_samples = 3;
 };
 
 struct GnssQualitySample {
@@ -131,6 +132,7 @@ GnssInnovationGateConfig LoadGnssInnovationGateConfig(const YAML::Node& config, 
 
     const auto& node = config["gnss_innovation_gate"];
     if (node["enable"]) gate.enable = node["enable"].as<bool>();
+    if (node["only_anomaly_context"]) gate.only_anomaly_context = node["only_anomaly_context"].as<bool>();
     if (node["horizontal_threshold_m"]) gate.horizontal_threshold_m = node["horizontal_threshold_m"].as<double>();
     if (node["vertical_threshold_m"]) gate.vertical_threshold_m = node["vertical_threshold_m"].as<double>();
     if (node["sigma_threshold"]) gate.sigma_threshold = node["sigma_threshold"].as<double>();
@@ -621,7 +623,9 @@ int main(int argc, char** argv) {
                 sample.innovation_vertical / sigma_v < gnss_gate_config.reacquire_sigma_threshold;
 
             bool reject_sample = false;
-            const bool gate_armed = sample.anomaly_context || gnss.time < cooldown_until;
+            const bool gate_armed =
+                (gnss_gate_config.only_anomaly_context ? sample.anomaly_context : true) ||
+                gnss.time < cooldown_until;
             if (!gate_armed) {
                 continue;
             }
