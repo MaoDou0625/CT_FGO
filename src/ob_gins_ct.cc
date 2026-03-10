@@ -62,14 +62,18 @@ struct GnssInnovationGateConfig {
     double horizontal_threshold_m = 12.0;
     double vertical_threshold_m = 6.0;
     double sigma_threshold = 4.0;
-    double cooldown_sec = 8.0;
-    int reacquire_consecutive = 2;
-    double reacquire_horizontal_threshold_m = 6.0;
-    double reacquire_vertical_threshold_m = 3.0;
-    double reacquire_sigma_threshold = 2.5;
-    double rejected_scale = 0.05;
+    double cooldown_sec = 5.0;
+    int reacquire_consecutive = 1;
+    double reacquire_horizontal_threshold_m = 7.5;
+    double reacquire_vertical_threshold_m = 4.0;
+    double reacquire_sigma_threshold = 3.0;
+    double recovery_horizontal_threshold_m = 10.0;
+    double recovery_vertical_threshold_m = 5.0;
+    double recovery_sigma_threshold = 3.5;
+    double recovery_scale = 0.35;
+    double rejected_scale = 0.10;
     int warmup_iterations = 4;
-    int anomaly_context_samples = 3;
+    int anomaly_context_samples = 2;
 };
 
 struct GnssQualitySample {
@@ -141,6 +145,10 @@ GnssInnovationGateConfig LoadGnssInnovationGateConfig(const YAML::Node& config, 
     if (node["reacquire_horizontal_threshold_m"]) gate.reacquire_horizontal_threshold_m = node["reacquire_horizontal_threshold_m"].as<double>();
     if (node["reacquire_vertical_threshold_m"]) gate.reacquire_vertical_threshold_m = node["reacquire_vertical_threshold_m"].as<double>();
     if (node["reacquire_sigma_threshold"]) gate.reacquire_sigma_threshold = node["reacquire_sigma_threshold"].as<double>();
+    if (node["recovery_horizontal_threshold_m"]) gate.recovery_horizontal_threshold_m = node["recovery_horizontal_threshold_m"].as<double>();
+    if (node["recovery_vertical_threshold_m"]) gate.recovery_vertical_threshold_m = node["recovery_vertical_threshold_m"].as<double>();
+    if (node["recovery_sigma_threshold"]) gate.recovery_sigma_threshold = node["recovery_sigma_threshold"].as<double>();
+    if (node["recovery_scale"]) gate.recovery_scale = node["recovery_scale"].as<double>();
     if (node["rejected_scale"]) gate.rejected_scale = node["rejected_scale"].as<double>();
     if (node["warmup_iterations"]) gate.warmup_iterations = node["warmup_iterations"].as<int>();
     if (node["anomaly_context_samples"]) gate.anomaly_context_samples = node["anomaly_context_samples"].as<int>();
@@ -621,8 +629,14 @@ int main(int argc, char** argv) {
                 sample.innovation_vertical < gnss_gate_config.reacquire_vertical_threshold_m &&
                 sample.innovation_horizontal / sigma_h < gnss_gate_config.reacquire_sigma_threshold &&
                 sample.innovation_vertical / sigma_v < gnss_gate_config.reacquire_sigma_threshold;
+            bool innovation_recovering =
+                sample.innovation_horizontal < gnss_gate_config.recovery_horizontal_threshold_m &&
+                sample.innovation_vertical < gnss_gate_config.recovery_vertical_threshold_m &&
+                sample.innovation_horizontal / sigma_h < gnss_gate_config.recovery_sigma_threshold &&
+                sample.innovation_vertical / sigma_v < gnss_gate_config.recovery_sigma_threshold;
 
             bool reject_sample = false;
+            bool soften_sample = false;
             const bool gate_armed =
                 (gnss_gate_config.only_anomaly_context ? sample.anomaly_context : true) ||
                 gnss.time < cooldown_until;
@@ -639,6 +653,10 @@ int main(int argc, char** argv) {
                     } else {
                         reject_sample = true;
                     }
+                } else if (!innovation_bad || innovation_recovering) {
+                    cooldown_until = std::max(cooldown_until, gnss.time + 0.5 * gnss_gate_config.cooldown_sec);
+                    reacquire_good_count = 0;
+                    soften_sample = true;
                 } else {
                     cooldown_until = std::max(cooldown_until, gnss.time + gnss_gate_config.cooldown_sec);
                     reacquire_good_count = 0;
@@ -653,6 +671,8 @@ int main(int argc, char** argv) {
             if (reject_sample) {
                 sample.weight_scale *= gnss_gate_config.rejected_scale;
                 sample.innovation_rejected = true;
+            } else if (soften_sample) {
+                sample.weight_scale *= gnss_gate_config.recovery_scale;
             }
         }
     };

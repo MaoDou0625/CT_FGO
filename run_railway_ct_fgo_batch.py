@@ -154,14 +154,18 @@ gnss_innovation_gate:
   horizontal_threshold_m: 12.0
   vertical_threshold_m: 6.0
   sigma_threshold: 4.0
-  cooldown_sec: 8.0
-  reacquire_consecutive: 2
-  reacquire_horizontal_threshold_m: 6.0
-  reacquire_vertical_threshold_m: 3.0
-  reacquire_sigma_threshold: 2.5
-  rejected_scale: 0.05
+  cooldown_sec: 5.0
+  reacquire_consecutive: 1
+  reacquire_horizontal_threshold_m: 7.5
+  reacquire_vertical_threshold_m: 4.0
+  reacquire_sigma_threshold: 3.0
+  recovery_horizontal_threshold_m: 10.0
+  recovery_vertical_threshold_m: 5.0
+  recovery_sigma_threshold: 3.5
+  recovery_scale: 0.35
+  rejected_scale: 0.10
   warmup_iterations: 4
-  anomaly_context_samples: 3
+  anomaly_context_samples: 2
 
 comparison:
   enable: false
